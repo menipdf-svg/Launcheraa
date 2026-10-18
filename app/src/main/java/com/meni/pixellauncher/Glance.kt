@@ -247,8 +247,6 @@ object GlanceData {
 
 private val glanceShadow = Shadow(color = Color.Black.copy(alpha = 0.35f), blurRadius = 6f)
 
-/** השורות מתחת לתאריך: תאריך עברי, שקיעה, האירוע הבא ומה מתנגן */
-@Composable
 /**
  * טוען את מזג האוויר הנוכחי ומרענן אותו מדי 20 דקות.
  * מחזיר null כל עוד אין נתונים, אין הרשאת מיקום או אין חיבור לרשת.
@@ -272,6 +270,7 @@ fun rememberWeather(enabled: Boolean, refreshKey: Int): Weather? {
     return weather
 }
 
+/** השורות מתחת לתאריך: תאריך עברי, שקיעה, האירוע הבא ומה מתנגן */
 @Composable
 fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current
