@@ -9,10 +9,11 @@ import android.location.LocationManager
 import android.provider.CalendarContract
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -306,7 +307,7 @@ private fun NowPlayingCard(playing: NowPlaying) {
                                 dragFraction = -1f
                             }
                         )
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp)) {
                             Text(
                                 formatTime(shown),
                                 fontSize = 11.sp,
@@ -314,7 +315,7 @@ private fun NowPlayingCard(playing: NowPlaying) {
                             )
                             Spacer(Modifier.weight(1f))
                             Text(
-                                formatTime(duration),
+                                "-" + formatTime(duration - shown),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -326,17 +327,22 @@ private fun NowPlayingCard(playing: NowPlaying) {
     }
 }
 
-/** סרגל דק: לחיצה קופצת למקום, וגרירה מזיזה אותו */
+/**
+ * סרגל בסגנון אפל מיוזיק: קפסולה דקה בלי כפתור עגול,
+ * שמתעבה כשנוגעים בה. לחיצה קופצת למקום, וגרירה מזיזה.
+ */
 @Composable
 private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onCommit: (Float) -> Unit) {
-    val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-    val filled = MaterialTheme.colorScheme.primary
+    var dragging by remember { mutableStateOf(false) }
     var dragged by remember { mutableFloatStateOf(0f) }
+    val barHeight by animateDpAsState(if (dragging) 11.dp else 6.dp, label = "seekHeight")
+    val trackAlpha by animateFloatAsState(if (dragging) 0.35f else 0.22f, label = "seekTrack")
+    val fillAlpha by animateFloatAsState(if (dragging) 1f else 0.85f, label = "seekFill")
 
     Box(
         Modifier
             .fillMaxWidth()
-            .height(22.dp)
+            .height(26.dp)
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     onCommit((offset.x / size.width).coerceIn(0f, 1f))
@@ -345,11 +351,18 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onCommit: (Float) 
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { offset ->
+                        dragging = true
                         dragged = (offset.x / size.width).coerceIn(0f, 1f)
                         onDrag(dragged)
                     },
-                    onDragEnd = { onCommit(dragged) },
-                    onDragCancel = { onCommit(dragged) },
+                    onDragEnd = {
+                        dragging = false
+                        onCommit(dragged)
+                    },
+                    onDragCancel = {
+                        dragging = false
+                        onCommit(dragged)
+                    },
                     onHorizontalDrag = { change, _ ->
                         change.consume()
                         dragged = (change.position.x / size.width).coerceIn(0f, 1f)
@@ -359,13 +372,20 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onCommit: (Float) 
             },
         contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.fillMaxWidth().height(14.dp)) {
-            val y = size.height / 2
-            val stroke = 4.dp.toPx()
-            drawLine(track, Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
-            val x = size.width * fraction
-            if (x > 0f) drawLine(filled, Offset(0f, y), Offset(x, y), stroke, StrokeCap.Round)
-            drawCircle(filled, radius = 6.dp.toPx(), center = Offset(x.coerceIn(0f, size.width), y))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(barHeight)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = trackAlpha))
+        ) {
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction.coerceIn(0.001f, 1f))
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = fillAlpha))
+            )
         }
     }
 }
