@@ -1,8 +1,14 @@
 package com.meni.pixellauncher
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.Image
 import androidx.compose.ui.text.input.ImeAction
@@ -553,7 +559,7 @@ fun LauncherScreen(
 
     val drawerProgress by animateFloatAsState(
         targetValue = if (drawerOpen) 1f else 0f,
-        animationSpec = tween(260),
+        animationSpec = tween(300, easing = FastOutSlowInEasing),
         label = "drawer"
     )
     // המגירה נשארת "חיה" בזמן גרירה ממנה, כדי שהאצבע לא תאבד את האייקון
@@ -966,7 +972,13 @@ fun LauncherScreen(
             }
 
             // ================= הגדרות =================
-            if (settingsOpen) {
+            AnimatedVisibility(
+                visible = settingsOpen,
+                enter = slideInVertically(tween(320, easing = FastOutSlowInEasing)) { it / 8 } +
+                    fadeIn(tween(240)),
+                exit = slideOutVertically(tween(240, easing = FastOutSlowInEasing)) { it / 8 } +
+                    fadeOut(tween(180))
+            ) {
                 val progress = categoryProgress
                 SettingsScreen(
                     store = store,
@@ -1067,7 +1079,13 @@ fun LauncherScreen(
             }
 
             // ================= אפליקציות מוסתרות =================
-            if (hiddenOpen) {
+            AnimatedVisibility(
+                visible = hiddenOpen,
+                enter = slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 6 } +
+                    fadeIn(tween(220)),
+                exit = slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 6 } +
+                    fadeOut(tween(160))
+            ) {
                 HiddenAppsScreen(
                     apps = apps.filter { it.key in hiddenKeys },
                     columns = store.drawerColumns,

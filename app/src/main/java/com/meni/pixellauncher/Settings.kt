@@ -1,16 +1,36 @@
 package com.meni.pixellauncher
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,23 +38,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
 /** הקטגוריות במסך ההגדרות, לפי הסדר שבו הן מוצגות */
-private enum class SettingsSection(val title: String, val subtitle: String) {
-    APPEARANCE("מראה", "גודל וצורת אייקונים, חבילת אייקונים"),
-    HOME("מסך הבית", "פריסת רשת, מעברים, נקודות התראה, טפט"),
-    GLANCE("במבט חטוף", "תאריך עברי, שקיעה, יומן, מתנגן עכשיו"),
-    DRAWER("מגירת אפליקציות", "עמודות, קטגוריות, תיקיות, הצעות"),
-    SEARCH("חיפוש במגירה", "אנשי קשר, מחשבון, הגדרות, אינטרנט"),
-    GESTURES("מחוות", "מה כל מחווה במסך הבית עושה"),
-    DOCK("Dock חכם", "החלפת ה-Dock כשמחוברות אוזניות או רכב"),
-    PRIVACY("פרטיות ונעילה", "אפליקציות מוסתרות, קוד, מצב בטוח"),
-    BACKUP("גיבוי ושחזור", "שמירה לקובץ, שחזור ואיפוס"),
-    GENERAL("כללי", "אפליקציית ברירת המחדל")
+private enum class SettingsSection(
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val color: Color
+) {
+    APPEARANCE("מראה", "גודל וצורת אייקונים, חבילת אייקונים", Icons.Outlined.Star, Color(0xFF9334E6)),
+    HOME("מסך הבית", "פריסת רשת, מעברים, נקודות התראה, טפט", Icons.Outlined.Home, Color(0xFF1A73E8)),
+    GLANCE("במבט חטוף", "תאריך עברי, שקיעה, יומן, מתנגן עכשיו", Icons.Outlined.DateRange, Color(0xFF12B5CB)),
+    DRAWER("מגירת אפליקציות", "עמודות, קטגוריות, תיקיות, הצעות", Icons.Outlined.List, Color(0xFF188038)),
+    SEARCH("חיפוש במגירה", "אנשי קשר, מחשבון, הגדרות, אינטרנט", Icons.Outlined.Search, Color(0xFFE8710A)),
+    GESTURES("מחוות", "מה כל מחווה במסך הבית עושה", Icons.Outlined.Build, Color(0xFF8E6E53)),
+    DOCK("Dock חכם", "החלפת ה-Dock כשמחוברות אוזניות או רכב", Icons.Outlined.PlayArrow, Color(0xFFD01884)),
+    PRIVACY("פרטיות ונעילה", "אפליקציות מוסתרות, קוד, מצב בטוח", Icons.Outlined.Lock, Color(0xFFD93025)),
+    BACKUP("גיבוי ושחזור", "שמירה לקובץ, שחזור ואיפוס", Icons.Outlined.Refresh, Color(0xFF3F51B5)),
+    GENERAL("כללי", "אפליקציית ברירת המחדל", Icons.Outlined.Settings, Color(0xFF5F6368))
 }
 
 @Composable
@@ -230,6 +257,18 @@ fun SettingsScreen(
                 }
             }
 
+            AnimatedContent(
+                targetState = section,
+                transitionSpec = {
+                    // כניסה לקטגוריה מחליקה קדימה, חזרה מחליקה אחורה
+                    val shift = if (targetState != null) 1 else -1
+                    (slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { w -> shift * w / 4 } +
+                        fadeIn(tween(220))) togetherWith
+                        (slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { w -> -shift * w / 4 } +
+                            fadeOut(tween(150)))
+                },
+                label = "settingsSection"
+            ) { sec ->
             Column(
                 Modifier
                     .fillMaxSize()
@@ -237,10 +276,10 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                if (section == null) SectionList { section = it }
+                if (sec == null) SectionList { section = it }
 
                 // ---------- מצב בטוח ----------
-                if (section == SettingsSection.PRIVACY) SettingsGroup("מצב בטוח") {
+                if (sec == SettingsSection.PRIVACY) SettingsGroup("מצב בטוח") {
                     SettingSwitch(
                         title = "מצב בטוח",
                         subtitle = if (store.safeMode) "פעיל: רק האפליקציות שבחרת זמינות, וההגדרות דורשות אימות"
@@ -283,7 +322,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- סמלים ----------
-                if (section == SettingsSection.APPEARANCE) SettingsGroup("סמלים") {
+                if (sec == SettingsSection.APPEARANCE) SettingsGroup("סמלים") {
                     IconPreview(previewApps, store)
                     SettingSlider(
                         title = "גודל אייקון",
@@ -318,7 +357,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- מסך הבית ----------
-                if (section == SettingsSection.HOME) SettingsGroup("מסך הבית") {
+                if (sec == SettingsSection.HOME) SettingsGroup("מסך הבית") {
                     GridSetting(store)
                     SettingChoice(
                         title = "מעבר בין מסכים",
@@ -356,7 +395,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- במבט חטוף ----------
-                if (section == SettingsSection.GLANCE) SettingsGroup("במבט חטוף") {
+                if (sec == SettingsSection.GLANCE) SettingsGroup("במבט חטוף") {
                     SettingSwitch(
                         title = "תאריך עברי",
                         subtitle = "מתחת לתאריך. אחרי השקיעה עובר ליום הבא",
@@ -389,7 +428,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- מגירת אפליקציות ----------
-                if (section == SettingsSection.DRAWER) SettingsGroup("מגירת אפליקציות") {
+                if (sec == SettingsSection.DRAWER) SettingsGroup("מגירת אפליקציות") {
                     SettingChoice(
                         title = "עמודות במגירה",
                         options = listOf(4, 5, 6),
@@ -448,7 +487,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- מחוות ----------
-                if (section == SettingsSection.GESTURES) SettingsGroup("מחוות במסך הבית") {
+                if (sec == SettingsSection.GESTURES) SettingsGroup("מחוות במסך הבית") {
                     LauncherGesture.entries.forEach { gesture ->
                         val action = store.gestureActions[gesture] ?: GestureAction.NONE
                         val appName = if (action == GestureAction.APP) {
@@ -470,7 +509,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- אפליקציות מוסתרות ----------
-                if (section == SettingsSection.PRIVACY) SettingsGroup("אפליקציות מוסתרות") {
+                if (sec == SettingsSection.PRIVACY) SettingsGroup("אפליקציות מוסתרות") {
                     SettingAction(
                         title = "הצגת האפליקציות המוסתרות",
                         subtitle = if (hiddenCount == 0) "אין אפליקציות מוסתרות" else "$hiddenCount אפליקציות מוסתרות",
@@ -505,7 +544,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- Dock חכם ----------
-                if (section == SettingsSection.DOCK) SettingsGroup("Dock חכם") {
+                if (sec == SettingsSection.DOCK) SettingsGroup("Dock חכם") {
                     SettingSwitch(
                         title = "Dock לאוזניות ולרכב",
                         subtitle = "כשאוזניות או מערכת שמע של רכב מחוברות, ה-Dock מתחלף",
@@ -524,7 +563,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- חיפוש ----------
-                if (section == SettingsSection.SEARCH) SettingsGroup("חיפוש במגירה") {
+                if (sec == SettingsSection.SEARCH) SettingsGroup("חיפוש במגירה") {
                     SettingSwitch(
                         title = "אנשי קשר",
                         subtitle = "חיפוש ושיחה ישר מהמגירה (צריך הרשאת אנשי קשר)",
@@ -554,7 +593,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- גיבוי ----------
-                if (section == SettingsSection.BACKUP) SettingsGroup("גיבוי ושחזור") {
+                if (sec == SettingsSection.BACKUP) SettingsGroup("גיבוי ושחזור") {
                     SettingAction(
                         title = "שמירת גיבוי",
                         subtitle = "הסידור, התיקיות, השמות וההגדרות לקובץ אחד (בלי קודים)",
@@ -576,13 +615,14 @@ fun SettingsScreen(
                 }
 
                 // ---------- כללי ----------
-                if (section == SettingsSection.GENERAL) SettingsGroup("כללי") {
+                if (sec == SettingsSection.GENERAL) SettingsGroup("כללי") {
                     SettingAction(
                         title = "אפליקציית הבית",
                         subtitle = "הגדרת PixelLauncher כברירת מחדל",
                         onClick = onDefaultHome
                     )
                 }
+            }
             }
         }
     }
@@ -1054,6 +1094,21 @@ private fun SectionList(onPick: (SettingsSection) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
                 ) {
+                    Box(
+                        Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(item.color.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            item.icon,
+                            contentDescription = null,
+                            tint = item.color,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(item.title, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(2.dp))
