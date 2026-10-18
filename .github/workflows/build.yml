@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -28,7 +29,21 @@ jobs:
       - name: בנייה
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee /tmp/build.log
+
+      # כשהבנייה נכשלת, פותח Issue עם השגיאות כדי שאפשר יהיה לקרוא אותן
+      - name: דיווח שגיאות
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '```'
+            grep -E "^e: |error:|FAILURE:|What went wrong|Caused by|> Task .* FAILED" /tmp/build.log | head -80 || true
+            echo '```'
+          } > /tmp/body.md
+          gh issue create --title "בנייה ${{ github.run_number }} נכשלה" --body-file /tmp/body.md
 
       - name: שמירת ה-APK
         uses: actions/upload-artifact@v4
