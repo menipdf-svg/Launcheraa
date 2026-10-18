@@ -19,15 +19,26 @@ import org.json.JSONObject
 /** הקטגוריות שמופיעות במגירה, לפי הסדר הזה */
 enum class AppCategory(val label: String) {
     COMMUNICATION("תקשורת"),
+    SOCIAL("רשתות חברתיות"),
     PRODUCTIVITY("פרודוקטיביות"),
-    MEDIA("מוזיקה ווידאו"),
-    PHOTO("צילום ועיצוב"),
+    EDUCATION("חינוך ולימודים"),
+    MUSIC("מוזיקה"),
+    VIDEO("וידאו ובידור"),
+    PHOTO("צילום"),
+    DESIGN("עיצוב"),
     GAMES("משחקים"),
-    SHOPPING("קניות וכספים"),
-    TRAVEL("ניווט ונסיעות"),
-    NEWS("חדשות וקריאה"),
-    HEALTH("בריאות וספורט"),
+    SHOPPING("קניות"),
+    FINANCE("פיננסים"),
+    FOOD("אוכל ומשקאות"),
+    NAVIGATION("ניווט ורכב"),
+    TRAVEL("נסיעות"),
+    WEATHER("מזג אוויר"),
+    NEWS("חדשות"),
+    BOOKS("ספרים וקריאה"),
+    HEALTH("בריאות"),
+    SPORTS("ספורט"),
     LIFESTYLE("לייף סטייל"),
+    PERSONALIZATION("התאמה אישית"),
     TOOLS("כלים"),
     OTHER("אחר")
 }
@@ -220,16 +231,27 @@ object CategoryRepository {
     private fun fromPlay(raw: String): AppCategory? = when {
         raw.startsWith("GAME") -> AppCategory.GAMES
         else -> when (raw) {
-            "COMMUNICATION", "SOCIAL", "DATING" -> AppCategory.COMMUNICATION
-            "PRODUCTIVITY", "BUSINESS", "EDUCATION" -> AppCategory.PRODUCTIVITY
-            "MUSIC_AND_AUDIO", "VIDEO_PLAYERS", "ENTERTAINMENT", "COMICS" -> AppCategory.MEDIA
-            "PHOTOGRAPHY", "ART_AND_DESIGN", "BEAUTY" -> AppCategory.PHOTO
-            "SHOPPING", "FINANCE" -> AppCategory.SHOPPING
-            "MAPS_AND_NAVIGATION", "TRAVEL_AND_LOCAL", "WEATHER", "AUTO_AND_VEHICLES" -> AppCategory.TRAVEL
-            "NEWS_AND_MAGAZINES", "BOOKS_AND_REFERENCE" -> AppCategory.NEWS
-            "HEALTH_AND_FITNESS", "MEDICAL", "SPORTS" -> AppCategory.HEALTH
-            "LIFESTYLE", "FOOD_AND_DRINK", "HOUSE_AND_HOME", "PARENTING", "EVENTS" -> AppCategory.LIFESTYLE
-            "TOOLS", "PERSONALIZATION", "LIBRARIES_AND_DEMO" -> AppCategory.TOOLS
+            "COMMUNICATION" -> AppCategory.COMMUNICATION
+            "SOCIAL", "DATING" -> AppCategory.SOCIAL
+            "PRODUCTIVITY", "BUSINESS" -> AppCategory.PRODUCTIVITY
+            "EDUCATION" -> AppCategory.EDUCATION
+            "MUSIC_AND_AUDIO" -> AppCategory.MUSIC
+            "VIDEO_PLAYERS", "ENTERTAINMENT", "COMICS" -> AppCategory.VIDEO
+            "PHOTOGRAPHY" -> AppCategory.PHOTO
+            "ART_AND_DESIGN", "BEAUTY" -> AppCategory.DESIGN
+            "SHOPPING" -> AppCategory.SHOPPING
+            "FINANCE" -> AppCategory.FINANCE
+            "FOOD_AND_DRINK" -> AppCategory.FOOD
+            "MAPS_AND_NAVIGATION", "AUTO_AND_VEHICLES" -> AppCategory.NAVIGATION
+            "TRAVEL_AND_LOCAL" -> AppCategory.TRAVEL
+            "WEATHER" -> AppCategory.WEATHER
+            "NEWS_AND_MAGAZINES" -> AppCategory.NEWS
+            "BOOKS_AND_REFERENCE" -> AppCategory.BOOKS
+            "HEALTH_AND_FITNESS", "MEDICAL" -> AppCategory.HEALTH
+            "SPORTS" -> AppCategory.SPORTS
+            "LIFESTYLE", "HOUSE_AND_HOME", "PARENTING", "EVENTS" -> AppCategory.LIFESTYLE
+            "PERSONALIZATION" -> AppCategory.PERSONALIZATION
+            "TOOLS", "LIBRARIES_AND_DEMO" -> AppCategory.TOOLS
             else -> null
         }
     }
@@ -242,11 +264,12 @@ object CategoryRepository {
         }
         when (info?.category) {
             ApplicationInfo.CATEGORY_GAME -> return AppCategory.GAMES
-            ApplicationInfo.CATEGORY_AUDIO, ApplicationInfo.CATEGORY_VIDEO -> return AppCategory.MEDIA
+            ApplicationInfo.CATEGORY_AUDIO -> return AppCategory.MUSIC
+            ApplicationInfo.CATEGORY_VIDEO -> return AppCategory.VIDEO
             ApplicationInfo.CATEGORY_IMAGE -> return AppCategory.PHOTO
-            ApplicationInfo.CATEGORY_SOCIAL -> return AppCategory.COMMUNICATION
+            ApplicationInfo.CATEGORY_SOCIAL -> return AppCategory.SOCIAL
             ApplicationInfo.CATEGORY_NEWS -> return AppCategory.NEWS
-            ApplicationInfo.CATEGORY_MAPS -> return AppCategory.TRAVEL
+            ApplicationInfo.CATEGORY_MAPS -> return AppCategory.NAVIGATION
             ApplicationInfo.CATEGORY_PRODUCTIVITY -> return AppCategory.PRODUCTIVITY
             ApplicationInfo.CATEGORY_ACCESSIBILITY -> return AppCategory.TOOLS
         }
@@ -257,9 +280,11 @@ object CategoryRepository {
             listOf("dialer", "contacts", "messag", "mms", "telecom", "phone", "mail").any { it in p } ->
                 AppCategory.COMMUNICATION
             listOf("camera", "gallery", "photos").any { it in p } -> AppCategory.PHOTO
-            listOf("music", "video", "youtube", "player").any { it in p } -> AppCategory.MEDIA
+            listOf("music", "audio", "podcast").any { it in p } -> AppCategory.MUSIC
+            listOf("video", "youtube", "player", "tv").any { it in p } -> AppCategory.VIDEO
             listOf("calendar", "notes", "docs").any { it in p } -> AppCategory.PRODUCTIVITY
-            listOf("maps", "weather").any { it in p } -> AppCategory.TRAVEL
+            "weather" in p -> AppCategory.WEATHER
+            listOf("maps", "navigation").any { it in p } -> AppCategory.NAVIGATION
             listOf("settings", "clock", "calculator", "files", "documentsui", "browser", "chrome", "vending")
                 .any { it in p } -> AppCategory.TOOLS
             else -> AppCategory.OTHER
