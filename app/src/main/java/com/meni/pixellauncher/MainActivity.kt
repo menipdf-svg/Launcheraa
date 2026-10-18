@@ -21,8 +21,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,6 +62,8 @@ interface LauncherHost {
     fun importBackup()
     /** טשטוש הטפט שמאחורי הלאנצ'ר (אנדרואיד 12 ומעלה). 0 = בלי */
     fun setBackgroundBlur(radiusPx: Int)
+    /** אייקונים כהים בשורת הסטטוס כשמוצג מעליה משטח בהיר (מגירה, הגדרות) */
+    fun setLightSystemBars(light: Boolean)
 }
 
 // FragmentActivity נדרש בשביל חלון טביעת האצבע של המערכת
@@ -112,6 +114,12 @@ class MainActivity : FragmentActivity(), LauncherHost {
 
     override fun importBackup() {
         runCatching { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
+    }
+
+    override fun setLightSystemBars(light: Boolean) {
+        val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+        controller.isAppearanceLightStatusBars = light
+        controller.isAppearanceLightNavigationBars = light
     }
 
     override fun setBackgroundBlur(radiusPx: Int) {
@@ -475,8 +483,8 @@ class MainActivity : FragmentActivity(), LauncherHost {
 private fun launcherColors(): ColorScheme {
     val context = LocalContext.current
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        dynamicDarkColorScheme(context) // צבעי Material You לפי הטפט
+        dynamicLightColorScheme(context) // צבעי Material You לפי הטפט
     } else {
-        darkColorScheme()
+        lightColorScheme()
     }
 }

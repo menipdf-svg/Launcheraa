@@ -560,6 +560,10 @@ fun LauncherScreen(
     val drawerMounted = drawerOpen || drawerProgress > 0.01f ||
         (drag.app != null && drag.source == DragSource.DRAWER)
 
+    // מעל משטח בהיר (מגירה, הגדרות, מסתור, קוד) צריך אייקונים כהים בשורת הסטטוס
+    val lightSurface = drawerOpen || settingsOpen || hiddenOpen || pinMode != null
+    LaunchedEffect(lightSurface) { host.setLightSystemBars(lightSurface) }
+
     // טשטוש הטפט כשהמגירה או ההגדרות פתוחות
     val blurWanted = store.on(Feature.BLUR) && (drawerOpen || settingsOpen)
     LaunchedEffect(blurWanted) { host.setBackgroundBlur(if (blurWanted) 90 else 0) }
