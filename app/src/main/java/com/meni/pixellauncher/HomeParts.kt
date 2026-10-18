@@ -687,22 +687,27 @@ private fun FolderOverlay(
         val panelWidth = minOf(cellWidth * FOLDER_COLUMNS + 24.dp, maxWidth - margin * 2)
         val panelHeight = 16.dp + cellHeight * rows + 56.dp
 
-        // מיקום: ממורכז על האייקון, ולא חורג מהמסך
-        val anchorCenterX = with(density) { (anchor.center.x - container.left).toDp() }
-        val anchorCenterY = with(density) { (anchor.center.y - container.top).toDp() }
-        val anchorTop = with(density) { (anchor.top - container.top).toDp() }
+        // מיקום: ממורכז על האייקון עצמו, ולא חורג מהמסך
+        val hasAnchor = anchor != Rect.Zero
+        val anchorCenterX = if (hasAnchor)
+            with(density) { (anchor.center.x - container.left).toDp() } else maxWidth / 2
+        val anchorCenterY = if (hasAnchor)
+            with(density) { (anchor.center.y - container.top).toDp() } else maxHeight / 2
         val left = (anchorCenterX - panelWidth / 2)
             .coerceIn(margin, maxOf(margin, maxWidth - panelWidth - margin))
-        val top = (anchorTop - 14.dp)
+        // מרכוז אנכי סביב האייקון, כדי שהתיקייה תתרחב במקום שבו נלחצה
+        val top = (anchorCenterY - panelHeight / 2)
             .coerceIn(8.dp, maxOf(8.dp, maxHeight - panelHeight - margin))
 
         val panelWidthPx = with(density) { panelWidth.toPx() }
         val panelHeightPx = with(density) { panelHeight.toPx() }
         val iconPx = with(density) { iconSize.toPx() }
         val cornerPx = with(density) { 28.dp.toPx() }
+        // נקודת ההתרחבות היא מרכז האייקון. בלי הגבלה ל-0..1, כדי שגם כשהכרטיס
+        // נדחף פנימה מקצה המסך ההתרחבות תתחיל בדיוק מהתיקייה ולא תקפוץ
         val origin = TransformOrigin(
-            ((anchorCenterX - left) / panelWidth).coerceIn(0f, 1f),
-            ((anchorCenterY - top) / panelHeight).coerceIn(0f, 1f)
+            (anchorCenterX - left) / panelWidth,
+            (anchorCenterY - top) / panelHeight
         )
         val pagerState = rememberPagerState { pages }
 

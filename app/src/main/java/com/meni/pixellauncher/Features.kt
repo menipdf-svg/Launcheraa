@@ -2,6 +2,7 @@ package com.meni.pixellauncher
 
 /** מתגים של יכולות בלאנצ'ר. key נשמר בהגדרות */
 enum class Feature(val default: Boolean) {
+    HOME_SEARCH(true),
     NOTIFICATION_DOTS(true),
     GLANCE_HEBREW_DATE(true),
     GLANCE_SUNSET(false),

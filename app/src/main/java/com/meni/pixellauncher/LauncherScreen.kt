@@ -887,15 +887,17 @@ fun LauncherScreen(
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
-                SearchPill(
-                    onClick = {
-                        focusSearch = true
-                        drawerOpen = true
-                    },
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                    opacity = store.searchOpacity
-                )
+                if (store.on(Feature.HOME_SEARCH)) {
+                    Spacer(Modifier.height(8.dp))
+                    SearchPill(
+                        onClick = {
+                            focusSearch = true
+                            drawerOpen = true
+                        },
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        opacity = store.searchOpacity
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
             }
 

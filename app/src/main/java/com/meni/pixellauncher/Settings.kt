@@ -2,6 +2,7 @@ package com.meni.pixellauncher
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -366,14 +367,22 @@ fun SettingsScreen(
                         label = { it.label },
                         onSelect = { store.updatePageTransition(it) }
                     )
-                    SettingSlider(
-                        title = "שקיפות שורת החיפוש",
-                        valueLabel = "${((1f - store.searchOpacity) * 100).roundToInt()}%",
-                        value = 1f - store.searchOpacity,
-                        range = 0f..0.9f,
-                        steps = 8,
-                        onChange = { store.updateSearchOpacity(1f - it) }
+                    SettingSwitch(
+                        title = "שורת חיפוש במסך הבית",
+                        subtitle = "הצגת שורת החיפוש מעל ה-Dock. גם כשהיא מוסתרת, החיפוש זמין בראש המגירה",
+                        checked = store.on(Feature.HOME_SEARCH),
+                        onCheckedChange = { store.setFeature(Feature.HOME_SEARCH, it) }
                     )
+                    AnimatedVisibility(store.on(Feature.HOME_SEARCH)) {
+                        SettingSlider(
+                            title = "שקיפות שורת החיפוש",
+                            valueLabel = "${((1f - store.searchOpacity) * 100).roundToInt()}%",
+                            value = 1f - store.searchOpacity,
+                            range = 0f..0.9f,
+                            steps = 8,
+                            onChange = { store.updateSearchOpacity(1f - it) }
+                        )
+                    }
                     SettingSwitch(
                         title = "נקודות התראה",
                         subtitle = if (store.on(Feature.NOTIFICATION_DOTS) && !notificationAccess) needsAccess
