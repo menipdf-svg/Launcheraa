@@ -627,7 +627,9 @@ fun LauncherScreen(
             ) {
                 AtAGlance(
                     onClick = { AppsRepository.openCalendar(context) },
-                    modifier = Modifier.padding(horizontal = 24.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    weather = rememberWeather(store.on(Feature.GLANCE_WEATHER) && !safeActive, refreshKey),
+                    onWeatherClick = { GlanceData.openWeather(context) }
                 )
                 if (!safeActive) {
                     GlanceExtras(store, refreshKey, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp))

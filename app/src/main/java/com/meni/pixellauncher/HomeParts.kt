@@ -73,7 +73,12 @@ import java.util.Locale
 
 /** "במבט חטוף" כמו בפיקסל: רק התאריך, נקי. לחיצה פותחת את היומן */
 @Composable
-fun AtAGlance(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun AtAGlance(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    weather: Weather? = null,
+    onWeatherClick: () -> Unit = {}
+) {
     var now by remember { mutableStateOf(Date()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -82,23 +87,39 @@ fun AtAGlance(onClick: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
     val date = remember(now) { SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now) }
+    val style = TextStyle(
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Normal,
+        color = Color.White,
+        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 6f)
+    )
 
-    Text(
-        text = date,
-        style = TextStyle(
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color.White,
-            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 6f)
-        ),
-        modifier = modifier
-            .padding(top = 28.dp, bottom = 12.dp)
-            .clickable(
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(top = 28.dp, bottom = 12.dp)
+    ) {
+        Text(
+            text = date,
+            style = style,
+            modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             )
-    )
+        )
+        if (weather != null) {
+            Text(
+                text = "  ·  ${weather.symbol} ${weather.temp}°",
+                style = style,
+                maxLines = 1,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onWeatherClick
+                )
+            )
+        }
+    }
 }
 
 /** שורת החיפוש מתחת ל-Dock */

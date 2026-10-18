@@ -5,6 +5,7 @@ enum class Feature(val default: Boolean) {
     HOME_SEARCH(true),
     NOTIFICATION_DOTS(true),
     GLANCE_HEBREW_DATE(true),
+    GLANCE_WEATHER(false),
     GLANCE_SUNSET(false),
     GLANCE_CALENDAR(false),
     GLANCE_MEDIA(true),

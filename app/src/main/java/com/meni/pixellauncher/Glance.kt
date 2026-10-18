@@ -53,6 +53,41 @@ import kotlin.math.*
 
 data class NextEvent(val id: Long, val title: String, val begin: Long)
 
+/** מזג האוויר הנוכחי: טמפרטורה בצלזיוס וקוד מצב לפי WMO */
+data class Weather(val temp: Int, val code: Int) {
+    /** סמל קצר המתאר את מצב מזג האוויר */
+    val symbol: String
+        get() = when (code) {
+            0 -> "☀️"
+            1, 2 -> "🌤️"
+            3 -> "☁️"
+            in 45..48 -> "🌫️"
+            in 51..57 -> "🌦️"
+            in 61..67 -> "🌧️"
+            in 71..77 -> "🌨️"
+            in 80..82 -> "🌧️"
+            in 85..86 -> "🌨️"
+            in 95..99 -> "⛈️"
+            else -> "🌡️"
+        }
+
+    /** תיאור מילולי, לקורא מסך ולתפריטים */
+    val label: String
+        get() = when (code) {
+            0 -> "בהיר"
+            1, 2 -> "מעונן חלקית"
+            3 -> "מעונן"
+            in 45..48 -> "ערפל"
+            in 51..57 -> "טפטוף"
+            in 61..67 -> "גשם"
+            in 71..77 -> "שלג"
+            in 80..82 -> "ממטרים"
+            in 85..86 -> "ממטרי שלג"
+            in 95..99 -> "סופת רעמים"
+            else -> ""
+        }
+}
+
 object GlanceData {
 
     fun hasPermission(context: Context, permission: String) =
@@ -87,6 +122,69 @@ object GlanceData {
         }
         if (!prefs.contains("lat")) return null
         return prefs.getFloat("lat", 0f).toDouble() to prefs.getFloat("lon", 0f).toDouble()
+    }
+
+    /**
+     * מזג האוויר הנוכחי מ-Open-Meteo. השירות פתוח ואינו דורש מפתח או הרשמה.
+     * התשובה נשמרת במטמון ל-20 דקות, כדי לא לפנות לרשת בכל רענון של המסך.
+     */
+    fun weather(context: Context, lat: Double, lon: Double): Weather? {
+        val prefs = context.getSharedPreferences("glance", Context.MODE_PRIVATE)
+        val age = System.currentTimeMillis() - prefs.getLong("weather_at", 0L)
+        if (age in 0 until 20 * 60_000 && prefs.contains("weather_temp")) {
+            return Weather(prefs.getInt("weather_temp", 0), prefs.getInt("weather_code", -1))
+        }
+        val fresh = runCatching {
+            val url = java.net.URL(
+                "https://api.open-meteo.com/v1/forecast" +
+                    "?latitude=${"%.3f".format(Locale.US, lat)}" +
+                    "&longitude=${"%.3f".format(Locale.US, lon)}" +
+                    "&current=temperature_2m,weather_code"
+            )
+            val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 8_000
+                readTimeout = 8_000
+            }
+            try {
+                if (connection.responseCode != java.net.HttpURLConnection.HTTP_OK) return@runCatching null
+                val body = connection.inputStream.bufferedReader().use { it.readText() }
+                val current = org.json.JSONObject(body).getJSONObject("current")
+                Weather(
+                    temp = current.getDouble("temperature_2m").roundToInt(),
+                    code = current.optInt("weather_code", -1)
+                )
+            } finally {
+                connection.disconnect()
+            }
+        }.getOrNull()
+        if (fresh != null) {
+            prefs.edit()
+                .putInt("weather_temp", fresh.temp)
+                .putInt("weather_code", fresh.code)
+                .putLong("weather_at", System.currentTimeMillis())
+                .apply()
+            return fresh
+        }
+        // אין רשת: מוצגת התשובה האחרונה שנשמרה, אם קיימת ואינה ישנה מדי
+        if (prefs.contains("weather_temp") && age < 6 * 60 * 60_000) {
+            return Weather(prefs.getInt("weather_temp", 0), prefs.getInt("weather_code", -1))
+        }
+        return null
+    }
+
+    /** פתיחת תחזית מזג האוויר, באפליקציה המותקנת או בדפדפן */
+    fun openWeather(context: Context) {
+        val intents = listOf(
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse("dynact://velour/weather/ProxyActivity"))
+                .setClassName("com.google.android.googlequicksearchbox", "com.google.android.apps.search.weather.WeatherExportedActivity"),
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.google.com/search?q=%D7%9E%D7%96%D7%92+%D7%94%D7%90%D7%95%D7%95%D7%99%D7%A8"))
+        )
+        for (intent in intents) {
+            val ok = runCatching {
+                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+            }.getOrDefault(false)
+            if (ok) return
+        }
     }
 
     /** שעת השקיעה היום (אלגוריתם NOAA המקוצר, דיוק של דקה-שתיים) */
@@ -150,6 +248,30 @@ object GlanceData {
 private val glanceShadow = Shadow(color = Color.Black.copy(alpha = 0.35f), blurRadius = 6f)
 
 /** השורות מתחת לתאריך: תאריך עברי, שקיעה, האירוע הבא ומה מתנגן */
+@Composable
+/**
+ * טוען את מזג האוויר הנוכחי ומרענן אותו מדי 20 דקות.
+ * מחזיר null כל עוד אין נתונים, אין הרשאת מיקום או אין חיבור לרשת.
+ */
+@Composable
+fun rememberWeather(enabled: Boolean, refreshKey: Int): Weather? {
+    val context = LocalContext.current
+    var weather by remember { mutableStateOf<Weather?>(null) }
+    LaunchedEffect(enabled, refreshKey) {
+        if (!enabled) {
+            weather = null
+            return@LaunchedEffect
+        }
+        while (true) {
+            weather = withContext(Dispatchers.IO) {
+                GlanceData.location(context)?.let { (lat, lon) -> GlanceData.weather(context, lat, lon) }
+            }
+            delay(20 * 60_000)
+        }
+    }
+    return weather
+}
+
 @Composable
 fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current

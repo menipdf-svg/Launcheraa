@@ -412,6 +412,14 @@ fun SettingsScreen(
                         onCheckedChange = { store.setFeature(Feature.GLANCE_HEBREW_DATE, it) }
                     )
                     SettingSwitch(
+                        title = "מזג אוויר",
+                        subtitle = "טמפרטורה נוכחית לצד התאריך, לפי מיקום המכשיר (נדרשת הרשאת מיקום)",
+                        checked = store.on(Feature.GLANCE_WEATHER),
+                        onCheckedChange = {
+                            toggleWithPermission(Feature.GLANCE_WEATHER, android.Manifest.permission.ACCESS_COARSE_LOCATION, it)
+                        }
+                    )
+                    SettingSwitch(
                         title = "שעת השקיעה",
                         subtitle = "לפי מיקום המכשיר (נדרשת הרשאת מיקום)",
                         checked = store.on(Feature.GLANCE_SUNSET),
