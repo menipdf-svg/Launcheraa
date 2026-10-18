@@ -22,16 +22,13 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: בנייה
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: שמירת ה-APK
         uses: actions/upload-artifact@v4
