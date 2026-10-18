@@ -23,8 +23,17 @@ data class NowPlaying(
     val artist: String,
     val art: Bitmap?,
     val isPlaying: Boolean,
+    val duration: Long,
     val controller: MediaController
-)
+) {
+    /** המיקום בשיר ברגע זה, מחושב מהזמן שעבר מאז העדכון האחרון */
+    fun positionNow(): Long {
+        val state = controller.playbackState ?: return 0L
+        if (state.state != PlaybackState.STATE_PLAYING) return state.position
+        val elapsed = android.os.SystemClock.elapsedRealtime() - state.lastPositionUpdateTime
+        return (state.position + elapsed * state.playbackSpeed).toLong().coerceAtLeast(0L)
+    }
+}
 
 /**
  * מאזין להתראות (באישור המשתמש), בשביל:
@@ -121,6 +130,7 @@ class NotifService : NotificationListenerService() {
             art = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART),
             isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING,
+            duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION),
             controller = controller
         )
         main.post { nowPlaying.value = value }

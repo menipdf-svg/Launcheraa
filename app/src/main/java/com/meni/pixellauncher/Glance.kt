@@ -10,6 +10,12 @@ import android.provider.CalendarContract
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -221,6 +227,17 @@ fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Mod
 private fun NowPlayingCard(playing: NowPlaying) {
     val context = LocalContext.current
     val controls = playing.controller.transportControls
+
+    // המיקום בשיר, מתעדכן בזמן נגינה
+    var position by remember(playing.title) { mutableLongStateOf(playing.positionNow()) }
+    var dragFraction by remember(playing.title) { mutableFloatStateOf(-1f) }
+    LaunchedEffect(playing.title, playing.isPlaying) {
+        while (true) {
+            position = playing.positionNow()
+            delay(500)
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f),
@@ -232,45 +249,134 @@ private fun NowPlayingCard(playing: NowPlaying) {
                 }
             }
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(10.dp)
-        ) {
-            val art = remember(playing.art) { playing.art?.asImageBitmap() }
-            if (art != null) {
-                Image(
-                    bitmap = art,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp))
-                )
-                Spacer(Modifier.width(12.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    playing.title,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (playing.artist.isNotBlank()) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val art = remember(playing.art) { playing.art?.asImageBitmap() }
+                if (art != null) {
+                    Image(
+                        bitmap = art,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp))
+                    )
+                    Spacer(Modifier.width(12.dp))
+                }
+                Column(Modifier.weight(1f)) {
                     Text(
-                        playing.artist,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        playing.title,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (playing.artist.isNotBlank()) {
+                        Text(
+                            playing.artist,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                // כפתורי המדיה תמיד באותו סדר: קודם משמאל, הבא מימין
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MediaButton(MediaGlyph.PREVIOUS) { controls.skipToPrevious() }
+                        MediaButton(if (playing.isPlaying) MediaGlyph.PAUSE else MediaGlyph.PLAY, large = true) {
+                            if (playing.isPlaying) controls.pause() else controls.play()
+                        }
+                        MediaButton(MediaGlyph.NEXT) { controls.skipToNext() }
+                    }
                 }
             }
-            MediaButton(MediaGlyph.PREVIOUS) { controls.skipToPrevious() }
-            MediaButton(if (playing.isPlaying) MediaGlyph.PAUSE else MediaGlyph.PLAY, large = true) {
-                if (playing.isPlaying) controls.pause() else controls.play()
+
+            // סרגל התקדמות שאפשר לגרור בו
+            val duration = playing.duration
+            if (duration > 0) {
+                val shown = if (dragFraction >= 0f) (dragFraction * duration).toLong() else position
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Column(Modifier.padding(top = 2.dp)) {
+                        SeekBar(
+                            fraction = (shown.toFloat() / duration).coerceIn(0f, 1f),
+                            onDrag = { dragFraction = it },
+                            onCommit = {
+                                controls.seekTo((it * duration).toLong())
+                                position = (it * duration).toLong()
+                                dragFraction = -1f
+                            }
+                        )
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                            Text(
+                                formatTime(shown),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                formatTime(duration),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
-            MediaButton(MediaGlyph.NEXT) { controls.skipToNext() }
         }
     }
+}
+
+/** סרגל דק: לחיצה קופצת למקום, וגרירה מזיזה אותו */
+@Composable
+private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onCommit: (Float) -> Unit) {
+    val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+    val filled = MaterialTheme.colorScheme.primary
+    var dragged by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(22.dp)
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    onCommit((offset.x / size.width).coerceIn(0f, 1f))
+                }
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        dragged = (offset.x / size.width).coerceIn(0f, 1f)
+                        onDrag(dragged)
+                    },
+                    onDragEnd = { onCommit(dragged) },
+                    onDragCancel = { onCommit(dragged) },
+                    onHorizontalDrag = { change, _ ->
+                        change.consume()
+                        dragged = (change.position.x / size.width).coerceIn(0f, 1f)
+                        onDrag(dragged)
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxWidth().height(14.dp)) {
+            val y = size.height / 2
+            val stroke = 4.dp.toPx()
+            drawLine(track, Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
+            val x = size.width * fraction
+            if (x > 0f) drawLine(filled, Offset(0f, y), Offset(x, y), stroke, StrokeCap.Round)
+            drawCircle(filled, radius = 6.dp.toPx(), center = Offset(x.coerceIn(0f, size.width), y))
+        }
+    }
+}
+
+/** 03:45 או 1:03:45 */
+private fun formatTime(ms: Long): String {
+    val total = (ms / 1000).coerceAtLeast(0)
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
 
 private enum class MediaGlyph { PLAY, PAUSE, NEXT, PREVIOUS }
