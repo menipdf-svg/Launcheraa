@@ -231,7 +231,7 @@ fun AppDrawer(
         if (sections == null) {
             filtered.map<AppInfo, DrawerEntry> { DrawerEntry.App(it) }
         } else if (folderMode) {
-            // תיקייה שיצרת מוצגת תמיד, גם עם אפליקציה אחת
+            // תיקייה שנוצרה על ידך מוצגת תמיד, גם עם אפליקציה אחת
             val isFolder = { group: DrawerGroup, size: Int -> size >= 2 || group.isCustom }
             // תיקיות ואפליקציות בודדות ממוינות יחד לפי א-ב
             val folders = sections.filter { isFolder(it.key, it.value.size) }
@@ -607,7 +607,7 @@ private fun FolderTile(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Text(
-            if (folder.category.isCustom) "תיקייה שיצרת" else "קטגוריה מ-Google Play",
+            if (folder.category.isCustom) "תיקייה שנוצרה על ידך" else "קטגוריה מ-Google Play",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)

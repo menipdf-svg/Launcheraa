@@ -91,7 +91,7 @@ class MainActivity : FragmentActivity(), LauncherHost {
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri != null) {
                 val ok = Backup.export(this, uri)
-                android.widget.Toast.makeText(this, if (ok) "הגיבוי נשמר" else "הגיבוי נכשל", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(this, if (ok) "הגיבוי נשמר" else "שמירת הגיבוי נכשלה", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -102,7 +102,7 @@ class MainActivity : FragmentActivity(), LauncherHost {
                     android.widget.Toast.makeText(this, "השחזור הושלם", android.widget.Toast.LENGTH_SHORT).show()
                     recreate() // טוען מחדש את כל ההגדרות
                 } else {
-                    android.widget.Toast.makeText(this, "הקובץ לא תקין", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, "הקובץ אינו תקין", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         }

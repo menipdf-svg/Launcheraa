@@ -142,8 +142,8 @@ fun PinFlow(
             PinMode.SET -> "שינוי קוד" to "הזנת הקוד הנוכחי"
             PinMode.REMOVE -> "הסרת קוד" to "הזנת הקוד הנוכחי"
         }
-        "new" -> (if (emergency) "קוד חירום חדש" else "קוד חדש") to "לפחות 4 ספרות"
-        else -> "קוד חדש" to "הזנת הקוד שוב לאימות"
+        "new" -> (if (emergency) "קוד חירום חדש" else "קוד חדש") to "4 ספרות לפחות"
+        else -> "קוד חדש" to "הזנת הקוד פעם נוספת לאימות"
     }
 
     PinPad(
@@ -166,11 +166,11 @@ fun PinFlow(
                     }
                     true
                 } else {
-                    error = "קוד שגוי"
+                    error = "הקוד שגוי"
                     false
                 }
                 "new" -> if (pin.length < 4) {
-                    error = "הקוד צריך לפחות 4 ספרות"
+                    error = "הקוד חייב לכלול 4 ספרות לפחות"
                     false
                 } else {
                     error = null
@@ -183,7 +183,7 @@ fun PinFlow(
                     onSuccess()
                     true
                 } else {
-                    error = "הקודים לא תואמים, נסה שוב"
+                    error = "הקודים אינם תואמים. יש לנסות שוב"
                     step = "new"
                     false
                 }

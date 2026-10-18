@@ -283,7 +283,7 @@ class LauncherStore(context: Context) {
     var hasPin by mutableStateOf(prefs.getString("pinHash", null) != null)
         private set
 
-    // נעילה בטביעת אצבע בלבד (במקום קוד)
+    // נעילה בטביעת אצבע בלבד (חלופה לקוד)
     var biometricLock by mutableStateOf(prefs.getBoolean("biometricLock", false))
         private set
 

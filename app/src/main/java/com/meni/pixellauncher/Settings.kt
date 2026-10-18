@@ -52,14 +52,14 @@ private enum class SettingsSection(
     val icon: ImageVector,
     val color: Color
 ) {
-    APPEARANCE("מראה", "גודל וצורת אייקונים, חבילת אייקונים", Icons.Outlined.Star, Color(0xFF9334E6)),
-    HOME("מסך הבית", "פריסת רשת, מעברים, נקודות התראה, טפט", Icons.Outlined.Home, Color(0xFF1A73E8)),
-    GLANCE("במבט חטוף", "תאריך עברי, שקיעה, יומן, מתנגן עכשיו", Icons.Outlined.DateRange, Color(0xFF12B5CB)),
-    DRAWER("מגירת אפליקציות", "עמודות, קטגוריות, תיקיות, הצעות", Icons.Outlined.List, Color(0xFF188038)),
-    SEARCH("חיפוש במגירה", "אנשי קשר, מחשבון, הגדרות, אינטרנט", Icons.Outlined.Search, Color(0xFFE8710A)),
-    GESTURES("מחוות", "מה כל מחווה במסך הבית עושה", Icons.Outlined.Build, Color(0xFF8E6E53)),
-    DOCK("Dock חכם", "החלפת ה-Dock כשמחוברות אוזניות או רכב", Icons.Outlined.PlayArrow, Color(0xFFD01884)),
-    PRIVACY("פרטיות ונעילה", "אפליקציות מוסתרות, קוד, מצב בטוח", Icons.Outlined.Lock, Color(0xFFD93025)),
+    APPEARANCE("מראה", "גודל האייקונים, צורתם וחבילת אייקונים", Icons.Outlined.Star, Color(0xFF9334E6)),
+    HOME("מסך הבית", "פריסת הרשת, מעברים, נקודות התראה וטפט", Icons.Outlined.Home, Color(0xFF1A73E8)),
+    GLANCE("במבט חטוף", "תאריך עברי, שעת שקיעה, יומן והנגן", Icons.Outlined.DateRange, Color(0xFF12B5CB)),
+    DRAWER("מגירת אפליקציות", "עמודות, קטגוריות, תיקיות והצעות", Icons.Outlined.List, Color(0xFF188038)),
+    SEARCH("חיפוש במגירה", "אנשי קשר, מחשבון, הגדרות ואינטרנט", Icons.Outlined.Search, Color(0xFFE8710A)),
+    GESTURES("מחוות", "הפעולה שתתבצע בכל מחווה", Icons.Outlined.Build, Color(0xFF8E6E53)),
+    DOCK("Dock חכם", "החלפת ה-Dock בעת חיבור אוזניות או רכב", Icons.Outlined.PlayArrow, Color(0xFFD01884)),
+    PRIVACY("פרטיות ונעילה", "אפליקציות מוסתרות, קוד ומצב בטוח", Icons.Outlined.Lock, Color(0xFFD93025)),
     BACKUP("גיבוי ושחזור", "שמירה לקובץ, שחזור ואיפוס", Icons.Outlined.Refresh, Color(0xFF3F51B5)),
     GENERAL("כללי", "אפליקציית ברירת המחדל", Icons.Outlined.Settings, Color(0xFF5F6368))
 }
@@ -106,7 +106,7 @@ fun SettingsScreen(
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
-        pendingFeature?.let { if (granted) store.setFeature(it, true) else toast("ההרשאה לא ניתנה") }
+        pendingFeature?.let { if (granted) store.setFeature(it, true) else toast("ההרשאה לא אושרה") }
         pendingFeature = null
     }
     fun toggleWithPermission(feature: Feature, permission: String, enable: Boolean) {
@@ -130,11 +130,11 @@ fun SettingsScreen(
     fun toggleWithNotificationAccess(feature: Feature, enable: Boolean) {
         store.setFeature(feature, enable)
         if (enable && !notificationAccess) {
-            toast("צריך לאשר ל-PixelLauncher גישה להתראות")
+            toast("יש לאשר ל-PixelLauncher גישה להתראות")
             openNotificationAccess()
         }
     }
-    val needsAccess = "צריך גישה להתראות. לחיצה לאישור"
+    val needsAccess = "נדרשת גישה להתראות. לחיצה לאישור"
 
     if (pickingContextDock) {
         SafeAppsDialog(
@@ -167,7 +167,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { confirmRemoveOwner = false },
             title = { Text("לבטל את הנעילה המלאה?") },
-            text = { Text("הלאנצ'ר יפסיק להיות מנהל המכשיר. מצב בטוח ימשיך להסתיר אפליקציות, אבל לא יחסום יציאה מהן. כדי להפעיל שוב צריך לחזור על ההגדרה מהמחשב.") },
+            text = { Text("הלאנצ'ר יחדל לשמש כמנהל המכשיר. מצב בטוח ימשיך להסתיר אפליקציות, אך לא יחסום יציאה מהן. להפעלה מחדש יש לחזור על ההגדרה מהמחשב.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRemoveOwner = false
@@ -215,7 +215,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             title = { Text("להחזיר לברירת מחדל?") },
-            text = { Text("התיקיות שיצרת יימחקו, וכל האפליקציות יחזרו לקטגוריה שלהן ב-Google Play. האפליקציות עצמן לא יימחקו.") },
+            text = { Text("התיקיות שנוצרו יימחקו, וכל האפליקציות יחזרו לקטגוריה שלהן ב-Google Play. האפליקציות עצמן לא יימחקו.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmReset = false
@@ -282,40 +282,40 @@ fun SettingsScreen(
                 if (sec == SettingsSection.PRIVACY) SettingsGroup("מצב בטוח") {
                     SettingSwitch(
                         title = "מצב בטוח",
-                        subtitle = if (store.safeMode) "פעיל: רק האפליקציות שבחרת זמינות, וההגדרות דורשות אימות"
-                            else "רק אפליקציות שבחרת יופיעו בלאנצ'ר",
+                        subtitle = if (store.safeMode) "פעיל: רק האפליקציות שנבחרו זמינות, וההגדרות מחייבות אימות"
+                            else "רק האפליקציות שנבחרו יופיעו בלאנצ'ר",
                         checked = store.safeMode,
                         onCheckedChange = onSafeModeChange
                     )
                     SettingAction(
                         title = "אפליקציות מותרות",
-                        subtitle = if (store.safeApps.isEmpty()) "עדיין לא נבחרו אפליקציות"
+                        subtitle = if (store.safeApps.isEmpty()) "טרם נבחרו אפליקציות"
                             else "${store.safeApps.size} אפליקציות",
                         onClick = { pickingSafeApps = true }
                     )
                     if (isDeviceOwner) {
                         SettingAction(
                             title = "נעילה מלאה פעילה",
-                            subtitle = "כשמצב בטוח פועל אין יציאה מהאפליקציות המותרות: בלי התראות ובלי אפליקציות אחרונות",
+                            subtitle = "כאשר מצב בטוח פעיל לא ניתן לצאת מהאפליקציות המותרות, ללא גישה להתראות ולאפליקציות האחרונות",
                             onClick = {}
                         )
                         if (store.biometricLock) {
                             SettingAction(
                                 title = "קוד חירום",
-                                subtitle = if (store.hasEmergencyPin) "מוגדר. לחיצה לשינוי"
-                                    else "חובה לפני הפעלה: ליציאה כשטביעת האצבע לא עובדת",
+                                subtitle = if (store.hasEmergencyPin) "מוגדר. לחיצה לשינוי הקוד"
+                                    else "נדרש לפני ההפעלה, ליציאה כאשר טביעת האצבע אינה פועלת",
                                 onClick = { onEmergencyPin(PinMode.SET) }
                             )
                         }
                         SettingAction(
                             title = "ביטול נעילה מלאה",
-                            subtitle = "מסיר את הרשאת מנהל המכשיר. נדרש לפני הסרת הלאנצ'ר מהטלפון",
+                            subtitle = "מבטל את הרשאת מנהל המכשיר. נדרש לפני הסרת הלאנצ'ר מהטלפון",
                             onClick = { confirmRemoveOwner = true }
                         )
                     } else {
                         SettingAction(
                             title = "נעילה מלאה (מצב קיוסק)",
-                            subtitle = "חסימה ברמת המערכת. דורש הגדרה חד-פעמית מהמחשב",
+                            subtitle = "חסימה ברמת המערכת. נדרשת הגדרה חד-פעמית מהמחשב",
                             onClick = { showKioskSetup = true }
                         )
                     }
@@ -341,7 +341,7 @@ fun SettingsScreen(
                     )
                     SettingSwitch(
                         title = "סמלים בצבעי הטפט",
-                        subtitle = "באנדרואיד 13 ומעלה, באפליקציות שתומכות בזה",
+                        subtitle = "באנדרואיד 13 ומעלה, באפליקציות התומכות בכך",
                         checked = store.themedIcons,
                         onCheckedChange = { store.updateThemedIcons(it) }
                     )
@@ -377,13 +377,13 @@ fun SettingsScreen(
                     SettingSwitch(
                         title = "נקודות התראה",
                         subtitle = if (store.on(Feature.NOTIFICATION_DOTS) && !notificationAccess) needsAccess
-                            else "נקודה על אייקון של אפליקציה שיש לה התראות",
+                            else "נקודה על האייקון של אפליקציה שממתינות לה התראות",
                         checked = store.on(Feature.NOTIFICATION_DOTS),
                         onCheckedChange = { toggleWithNotificationAccess(Feature.NOTIFICATION_DOTS, it) }
                     )
                     SettingSwitch(
                         title = "טשטוש הטפט",
-                        subtitle = "כשהמגירה או ההגדרות פתוחות (אנדרואיד 12 ומעלה)",
+                        subtitle = "בעת פתיחת המגירה או ההגדרות (אנדרואיד 12 ומעלה)",
                         checked = store.on(Feature.BLUR),
                         onCheckedChange = { store.setFeature(Feature.BLUR, it) }
                     )
@@ -398,13 +398,13 @@ fun SettingsScreen(
                 if (sec == SettingsSection.GLANCE) SettingsGroup("במבט חטוף") {
                     SettingSwitch(
                         title = "תאריך עברי",
-                        subtitle = "מתחת לתאריך. אחרי השקיעה עובר ליום הבא",
+                        subtitle = "מוצג מתחת לתאריך. לאחר השקיעה מתקדם ליום הבא",
                         checked = store.on(Feature.GLANCE_HEBREW_DATE),
                         onCheckedChange = { store.setFeature(Feature.GLANCE_HEBREW_DATE, it) }
                     )
                     SettingSwitch(
                         title = "שעת השקיעה",
-                        subtitle = "לפי המיקום שלך (צריך הרשאת מיקום)",
+                        subtitle = "לפי מיקום המכשיר (נדרשת הרשאת מיקום)",
                         checked = store.on(Feature.GLANCE_SUNSET),
                         onCheckedChange = {
                             toggleWithPermission(Feature.GLANCE_SUNSET, android.Manifest.permission.ACCESS_COARSE_LOCATION, it)
@@ -412,7 +412,7 @@ fun SettingsScreen(
                     )
                     SettingSwitch(
                         title = "האירוע הבא ביומן",
-                        subtitle = "ביומיים הקרובים (צריך הרשאת יומן)",
+                        subtitle = "אירועים ביומיים הקרובים (נדרשת הרשאת יומן)",
                         checked = store.on(Feature.GLANCE_CALENDAR),
                         onCheckedChange = {
                             toggleWithPermission(Feature.GLANCE_CALENDAR, android.Manifest.permission.READ_CALENDAR, it)
@@ -421,7 +421,7 @@ fun SettingsScreen(
                     SettingSwitch(
                         title = "מתנגן עכשיו",
                         subtitle = if (store.on(Feature.GLANCE_MEDIA) && !notificationAccess) needsAccess
-                            else "כרטיס עם השיר שמתנגן וכפתורי שליטה",
+                            else "כרטיס ובו השיר המתנגן ולחצני שליטה",
                         checked = store.on(Feature.GLANCE_MEDIA),
                         onCheckedChange = { toggleWithNotificationAccess(Feature.GLANCE_MEDIA, it) }
                     )
@@ -438,13 +438,13 @@ fun SettingsScreen(
                     )
                     SettingSwitch(
                         title = "הצעות חכמות",
-                        subtitle = "שורה בראש המגירה עם מה שכנראה תפתח עכשיו. נלמד רק במכשיר",
+                        subtitle = "שורה בראש המגירה ובה האפליקציות שסביר שייפתחו כעת. הלמידה מתבצעת במכשיר בלבד",
                         checked = store.on(Feature.SUGGESTIONS),
                         onCheckedChange = { store.setFeature(Feature.SUGGESTIONS, it) }
                     )
                     SettingSwitch(
                         title = "סימון אפליקציות חדשות",
-                        subtitle = "נקודה ליד השם עד שפותחים בפעם הראשונה",
+                        subtitle = "נקודה לצד השם עד לפתיחה הראשונה",
                         checked = store.on(Feature.NEW_BADGES),
                         onCheckedChange = { store.setFeature(Feature.NEW_BADGES, it) }
                     )
@@ -458,14 +458,14 @@ fun SettingsScreen(
                     )
                     SettingSwitch(
                         title = "סידור אוטומטי לפי קטגוריות",
-                        subtitle = "האפליקציות מתחלקות לפי הקטגוריה שלהן ב-Google Play",
+                        subtitle = "האפליקציות מחולקות לפי הקטגוריה שלהן ב-Google Play",
                         checked = store.drawerCategories,
                         onCheckedChange = { store.updateDrawerCategories(it) }
                     )
                     if (store.drawerCategories) {
                         SettingSwitch(
                             title = "תיקיות",
-                            subtitle = "כל קטגוריה מוצגת כתיקייה. כבוי: כותרות עם קיצורי קפיצה",
+                            subtitle = "כל קטגוריה מוצגת כתיקייה. כאשר האפשרות כבויה יוצגו כותרות עם קיצורי מעבר",
                             checked = store.drawerFolders,
                             onCheckedChange = { store.updateDrawerFolders(it) }
                         )
@@ -474,13 +474,13 @@ fun SettingsScreen(
                             subtitle = if (customCategoryCount == 0) {
                                 "כל האפליקציות מסודרות לפי Google Play"
                             } else {
-                                "ביטול $customCategoryCount שינויים ידניים (העברות ותיקיות שיצרת), וחזרה לקטגוריות של Google Play"
+                                "ביטול $customCategoryCount שינויים ידניים (העברות ותיקיות שנוצרו) וחזרה לקטגוריות של Google Play"
                             },
                             onClick = { if (customCategoryCount > 0) confirmReset = true }
                         )
                         SettingAction(
                             title = "רענון קטגוריות",
-                            subtitle = categoryStatus ?: "בדיקה מחדש של כל האפליקציות ב-Google Play",
+                            subtitle = categoryStatus ?: "בדיקה מחודשת של כל האפליקציות ב-Google Play",
                             onClick = onRefreshCategories
                         )
                     }
@@ -503,7 +503,7 @@ fun SettingsScreen(
                     }
                     SettingAction(
                         title = "איפוס מחוות",
-                        subtitle = "חזרה להגדרות המקוריות",
+                        subtitle = "החזרת כל המחוות להגדרות ברירת המחדל",
                         onClick = { store.resetGestures() }
                     )
                 }
@@ -517,7 +517,7 @@ fun SettingsScreen(
                     )
                     SettingSwitch(
                         title = "נעילה בטביעת אצבע",
-                        subtitle = if (store.biometricLock) "המסתור נפתח רק בטביעת אצבע" else "במקום קוד",
+                        subtitle = if (store.biometricLock) "המסתור נפתח רק בטביעת אצבע" else "חלופה לקוד",
                         checked = store.biometricLock,
                         onCheckedChange = onBiometricChange
                     )
@@ -531,13 +531,13 @@ fun SettingsScreen(
                         )
                         SettingAction(
                             title = "הסרת קוד",
-                            subtitle = "המסתור ייפתח בלי קוד",
+                            subtitle = "המסתור ייפתח ללא קוד",
                             onClick = { onPin(PinMode.REMOVE) }
                         )
                     } else {
                         SettingAction(
                             title = "הוספת קוד",
-                            subtitle = "נעילת האפליקציות המוסתרות בקוד ספרות",
+                            subtitle = "נעילת האפליקציות המוסתרות באמצעות קוד ספרות",
                             onClick = { onPin(PinMode.SET) }
                         )
                     }
@@ -547,7 +547,7 @@ fun SettingsScreen(
                 if (sec == SettingsSection.DOCK) SettingsGroup("Dock חכם") {
                     SettingSwitch(
                         title = "Dock לאוזניות ולרכב",
-                        subtitle = "כשאוזניות או מערכת שמע של רכב מחוברות, ה-Dock מתחלף",
+                        subtitle = "בעת חיבור אוזניות או מערכת שמע ברכב, ה-Dock מתחלף",
                         checked = store.on(Feature.CONTEXT_DOCK),
                         onCheckedChange = {
                             store.setFeature(Feature.CONTEXT_DOCK, it)
@@ -556,7 +556,7 @@ fun SettingsScreen(
                     )
                     SettingAction(
                         title = "אפליקציות ל-Dock הזה",
-                        subtitle = if (store.contextDock.isEmpty()) "עדיין לא נבחרו (עד $DOCK_MAX)"
+                        subtitle = if (store.contextDock.isEmpty()) "טרם נבחרו אפליקציות (עד $DOCK_MAX)"
                             else allApps.filter { it.key in store.contextDock }.joinToString(", ") { it.label },
                         onClick = { pickingContextDock = true }
                     )
@@ -566,7 +566,7 @@ fun SettingsScreen(
                 if (sec == SettingsSection.SEARCH) SettingsGroup("חיפוש במגירה") {
                     SettingSwitch(
                         title = "אנשי קשר",
-                        subtitle = "חיפוש ושיחה ישר מהמגירה (צריך הרשאת אנשי קשר)",
+                        subtitle = "חיפוש והתקשרות ישירות מהמגירה (נדרשת הרשאת אנשי קשר)",
                         checked = store.on(Feature.SEARCH_CONTACTS),
                         onCheckedChange = {
                             toggleWithPermission(Feature.SEARCH_CONTACTS, android.Manifest.permission.READ_CONTACTS, it)
@@ -586,7 +586,7 @@ fun SettingsScreen(
                     )
                     SettingSwitch(
                         title = "חיפוש בגוגל",
-                        subtitle = "שורה אחרונה שמחפשת את הטקסט באינטרנט",
+                        subtitle = "שורה אחרונה לחיפוש הטקסט באינטרנט",
                         checked = store.on(Feature.SEARCH_WEB),
                         onCheckedChange = { store.setFeature(Feature.SEARCH_WEB, it) }
                     )
@@ -596,20 +596,20 @@ fun SettingsScreen(
                 if (sec == SettingsSection.BACKUP) SettingsGroup("גיבוי ושחזור") {
                     SettingAction(
                         title = "שמירת גיבוי",
-                        subtitle = "הסידור, התיקיות, השמות וההגדרות לקובץ אחד (בלי קודים)",
+                        subtitle = "שמירת הסידור, התיקיות, השמות וההגדרות בקובץ אחד, ללא קודים",
                         onClick = { host.exportBackup() }
                     )
                     SettingAction(
                         title = "שחזור מגיבוי",
-                        subtitle = "טעינה מקובץ גיבוי. מחליף את הסידור הנוכחי",
+                        subtitle = "טעינה מקובץ גיבוי. פעולה זו מחליפה את הסידור הנוכחי",
                         onClick = { host.importBackup() }
                     )
                     SettingAction(
                         title = "איפוס ההצעות החכמות",
-                        subtitle = "מחיקת היסטוריית הפתיחות שהלאנצ'ר למד",
+                        subtitle = "מחיקת היסטוריית השימוש שנאגרה בלאנצ'ר",
                         onClick = {
                             Suggestions.clear(context)
-                            toast("ההיסטוריה נמחקה")
+                            toast("היסטוריית השימוש נמחקה")
                         }
                     )
                 }
@@ -986,14 +986,14 @@ private fun KioskSetupDialog(onDismiss: () -> Unit) {
         text = {
             Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
                 Text(
-                    "אנדרואיד מאפשר נעילה כזו רק ל\"מנהל מכשיר\", ומגדירים אותו פעם אחת מהמחשב:",
+                    "נעילה מסוג זה מתאפשרת באנדרואיד רק ל\"מנהל מכשיר\", והגדרתו מתבצעת פעם אחת מהמחשב:",
                     fontSize = 15.sp
                 )
                 Spacer(Modifier.height(12.dp))
                 listOf(
-                    "1. בטלפון: הגדרות ← חשבונות. מסירים זמנית את כל החשבונות (גוגל, סמסונג וכו'). אנדרואיד לא מאפשר מנהל מכשיר כשיש חשבונות.",
-                    "2. מחברים את הטלפון למק בכבל, עם ניפוי באגים ב-USB.",
-                    "3. בטרמינל במק מריצים את הפקודה:"
+                    "1. בטלפון: הגדרות ← חשבונות. יש להסיר זמנית את כל החשבונות (גוגל, סמסונג וכדומה), שכן אנדרואיד אינו מאפשר הגדרת מנהל מכשיר כאשר קיימים חשבונות.",
+                    "2. יש לחבר את הטלפון למחשב באמצעות כבל, כאשר ניפוי באגים ב-USB מופעל.",
+                    "3. בטרמינל שבמחשב יש להריץ את הפקודה הבאה:"
                 ).forEach {
                     Text(it, fontSize = 14.sp, modifier = Modifier.padding(vertical = 4.dp))
                 }
@@ -1018,9 +1018,9 @@ private fun KioskSetupDialog(onDismiss: () -> Unit) {
                     copied = true
                 }) { Text(if (copied) "הועתק ✓" else "העתקת הפקודה") }
                 listOf(
-                    "4. כשמופיע \"Success\", מחזירים את החשבונות.",
-                    "5. חוזרים לכאן: מעכשיו מצב בטוח נועל את הטלפון לאפליקציות שבחרת.",
-                    "שים לב: כל עוד הלאנצ'ר מנהל מכשיר, אי אפשר להסיר אותו מהטלפון. כדי להסיר: \"ביטול נעילה מלאה\" בהגדרות."
+                    "4. עם הופעת ההודעה \"Success\", ניתן להחזיר את החשבונות.",
+                    "5. בשלב זה יש לחזור לכאן. מעתה מצב בטוח נועל את הטלפון לאפליקציות שנבחרו.",
+                    "לתשומת לבך: כל עוד הלאנצ'ר משמש כמנהל מכשיר, לא ניתן להסיר אותו מהטלפון. לשם הסרתו יש לבחור \"ביטול נעילה מלאה\" בהגדרות."
                 ).forEach {
                     Text(it, fontSize = 14.sp, modifier = Modifier.padding(vertical = 4.dp))
                 }
@@ -1057,7 +1057,7 @@ private fun IconPackDialog(current: String?, onPick: (String?) -> Unit, onDismis
                 if (packs.isEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "לא נמצאו חבילות אייקונים במכשיר. אפשר להוריד מ-Google Play, למשל Arcticons או Lawnicons.",
+                        "לא נמצאו חבילות אייקונים במכשיר. ניתן להוריד חבילות מ-Google Play, לדוגמה Arcticons או Lawnicons.",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -53,7 +53,7 @@ object TimedLockText {
 
 /**
  * הגדרת נעילה לזמן קצוב: כמה זמן, אילו אפליקציות, והאם אפשר לבטל.
- * onStart(עד מתי, בלי אפשרות לבטל, האפליקציות)
+ * onStart(עד מתי, ללא אפשרות ביטול, האפליקציות)
  */
 @Composable
 fun TimedLockDialog(
@@ -89,9 +89,9 @@ fun TimedLockDialog(
     if (confirmStrict) {
         AlertDialog(
             onDismissRequest = { confirmStrict = false },
-            title = { Text("לנעול בלי אפשרות לבטל?") },
+            title = { Text("לנעול ללא אפשרות ביטול?") },
             text = {
-                Text("הטלפון יהיה נעול ל-${chosen.size} אפליקציות עד ${TimedLockText.clock(until)}. אי אפשר יהיה לבטל, גם לא עם קוד או טביעת אצבע.")
+                Text("הטלפון יינעל ל-${chosen.size} אפליקציות עד השעה ${TimedLockText.clock(until)}. לא ניתן יהיה לבטל את הנעילה, גם לא באמצעות קוד או טביעת אצבע.")
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -144,7 +144,7 @@ fun TimedLockDialog(
                     Column(Modifier.padding(14.dp)) {
                         Text("אפליקציות מותרות", fontSize = 16.sp)
                         Text(
-                            if (chosen.isEmpty()) "לחיצה לבחירה"
+                            if (chosen.isEmpty()) "לחיצה לבחירת אפליקציות"
                             else apps.filter { it.key in chosen }.joinToString(", ") { it.label },
                             fontSize = 13.sp,
                             maxLines = 2,
@@ -155,26 +155,26 @@ fun TimedLockDialog(
 
                 // ---------- ביטול ----------
                 Spacer(Modifier.height(12.dp))
-                Text("ביטול לפני הזמן", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                Text("ביטול לפני תום הזמן", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                 ChoiceRow(
                     selected = !strict,
                     enabled = hasOwnerLock,
-                    title = "אפשר לבטל עם קוד או טביעת אצבע",
-                    subtitle = if (hasOwnerLock) null else "צריך קודם להגדיר קוד או טביעת אצבע (הגדרות ← אפליקציות מוסתרות)",
+                    title = "ניתן לבטל באמצעות קוד או טביעת אצבע",
+                    subtitle = if (hasOwnerLock) null else "יש להגדיר תחילה קוד או טביעת אצבע, תחת הגדרות ← אפליקציות מוסתרות",
                     onClick = { strict = false }
                 )
                 ChoiceRow(
                     selected = strict,
                     enabled = true,
-                    title = "בלי אפשרות לבטל",
-                    subtitle = "הנעילה תשתחרר רק כשהזמן ייגמר",
+                    title = "ללא אפשרות ביטול",
+                    subtitle = "הנעילה תשתחרר רק בתום הזמן שנקבע",
                     onClick = { strict = true }
                 )
 
                 if (!isDeviceOwner) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "בלי נעילה מלאה אפשר לצאת דרך ההתראות או האפליקציות האחרונות. להפעלה: הגדרות ← מצב בטוח ← נעילה מלאה.",
+                        "ללא נעילה מלאה ניתן לצאת דרך ההתראות או האפליקציות האחרונות. להפעלתה: הגדרות ← מצב בטוח ← נעילה מלאה.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

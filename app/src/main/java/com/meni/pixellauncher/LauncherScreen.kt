@@ -203,7 +203,7 @@ fun LauncherScreen(
                         store.updateBiometricLock(false)
                         onSuccess()
                     }
-                    else -> if (fallback != null) fallback() else toast("חיישן טביעת האצבע לא זמין כרגע")
+                    else -> if (fallback != null) fallback() else toast("חיישן טביעת האצבע אינו זמין כעת")
                 }
             }
             store.hasPin -> {
@@ -218,16 +218,16 @@ fun LauncherScreen(
     /** פתיחת המסתור (לא זמין במצב בטוח) */
     fun requestHidden() {
         if (safeActive) {
-            toast("לא זמין במצב בטוח")
+            toast("אינו זמין במצב בטוח")
             return
         }
         authenticateOwner("אפליקציות מוסתרות") { hiddenOpen = true }
     }
 
-    /** ביטול נעילה לזמן קצוב לפני הזמן (רק אם לא נבחר "בלי אפשרות לבטל") */
+    /** ביטול נעילה לזמן קצוב לפני הזמן (רק אם לא נבחר "ללא אפשרות ביטול") */
     fun cancelTimedLock() {
         if (store.lockStrict) {
-            toast("אי אפשר לבטל. הנעילה תשתחרר ב-${TimedLockText.clock(store.lockUntil)}")
+            toast("לא ניתן לבטל. הנעילה תשתחרר בשעה ${TimedLockText.clock(store.lockUntil)}")
             return
         }
         authenticateOwner("ביטול הנעילה") {
@@ -239,7 +239,7 @@ fun LauncherScreen(
     /** במצב בטוח ההגדרות דורשות אימות */
     fun requestSettings() {
         when {
-            timedLock && store.lockStrict -> toast("הטלפון נעול עד ${TimedLockText.clock(store.lockUntil)}")
+            timedLock && store.lockStrict -> toast("הטלפון נעול עד השעה ${TimedLockText.clock(store.lockUntil)}")
             safeActive -> authenticateOwner("הגדרות") { settingsOpen = true }
             else -> settingsOpen = true
         }
@@ -391,7 +391,7 @@ fun LauncherScreen(
         if (shortcuts.isNotEmpty()) {
             list += MenuAction.Divider
         } else if (!AppsRepository.canShowShortcuts(context)) {
-            list += MenuAction("להצגת קיצורי דרך: הגדר כמסך הבית", vector = Icons.Outlined.Settings) {
+            list += MenuAction("להצגת קיצורי דרך יש להגדיר את PixelLauncher כמסך הבית", vector = Icons.Outlined.Settings) {
                 AppsRepository.openHomeSettings(context)
             }
             list += MenuAction.Divider
@@ -422,7 +422,7 @@ fun LauncherScreen(
             val hint = gesture?.let { "${it.label} במסך הבית" } ?: "הגדרות ← אפליקציות מוסתרות"
             android.widget.Toast.makeText(
                 context,
-                "${app.label} הוסתרה. כדי לראות אותה: $hint",
+                "${app.label} הוסתרה. להצגתה: $hint",
                 android.widget.Toast.LENGTH_LONG
             ).show()
         }
@@ -687,9 +687,9 @@ fun LauncherScreen(
                                                 .coerceIn(0, store.gridRows - 1)
                                             if (store.isAreaFree(page, cx, cy, 1, 1)) {
                                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                // בנעילה בלי אפשרות לבטל אין תפריט, רק הודעה עד מתי
+                                                // בנעילה ללא אפשרות ביטול אין תפריט, רק הודעה עד מתי
                                                 if (store.lockStrict && store.lockUntil > System.currentTimeMillis()) {
-                                                    toast("הטלפון נעול עד ${TimedLockText.clock(store.lockUntil)}")
+                                                    toast("הטלפון נעול עד השעה ${TimedLockText.clock(store.lockUntil)}")
                                                 } else {
                                                     homeMenu = page to off
                                                 }
@@ -985,7 +985,7 @@ fun LauncherScreen(
                     host = host,
                     notificationAccess = notificationAccess,
                     previewApps = visibleApps,
-                    categoryStatus = progress?.let { (done, total) -> "בודק ב-Google Play · $done/$total" },
+                    categoryStatus = progress?.let { (done, total) -> "בבדיקה מול Google Play · $done/$total" },
                     customCategoryCount = overrideCount,
                     onResetCategories = {
                         CategoryRepository.clearOverrides(context)
@@ -1021,17 +1021,17 @@ fun LauncherScreen(
                     onSafeModeChange = { enable ->
                         if (!enable) {
                             store.updateSafeMode(false)
-                            toast("מצב בטוח כובה")
+                            toast("מצב בטוח בוטל")
                         } else when {
-                            store.safeApps.isEmpty() -> toast("בחר קודם אילו אפליקציות יהיו זמינות")
+                            store.safeApps.isEmpty() -> toast("יש לבחור תחילה אילו אפליקציות יהיו זמינות")
                             isOwner && store.biometricLock && !store.hasEmergencyPin -> android.widget.Toast.makeText(
                                 context,
-                                "בנעילה מלאה עם טביעת אצבע צריך קוד חירום. הגדר אותו כאן במצב בטוח",
+                                "נעילה מלאה עם טביעת אצבע מחייבת קוד חירום. ניתן להגדיר אותו כאן, תחת מצב בטוח",
                                 android.widget.Toast.LENGTH_LONG
                             ).show()
                             !store.biometricLock && !store.hasPin -> android.widget.Toast.makeText(
                                 context,
-                                "כדי שאי אפשר יהיה לכבות את המצב הבטוח בלעדיך, הגדר קודם קוד או טביעת אצבע (באפליקציות מוסתרות)",
+                                "כדי שלא ניתן יהיה לכבות את המצב הבטוח ללא אישורך, יש להגדיר תחילה קוד או טביעת אצבע תחת הגדרות ← אפליקציות מוסתרות",
                                 android.widget.Toast.LENGTH_LONG
                             ).show()
                             else -> {
@@ -1044,13 +1044,13 @@ fun LauncherScreen(
                     },
                     onBiometricChange = { enable ->
                         if (!enable) {
-                            host.authenticate("כיבוי נעילה בטביעת אצבע", "אימות כדי להמשיך") {
+                            host.authenticate("ביטול נעילה בטביעת אצבע", "אימות להמשך") {
                                 store.updateBiometricLock(false)
                             }
                         } else {
                             when (host.biometricStatus()) {
                                 BiometricManager.BIOMETRIC_SUCCESS ->
-                                    host.authenticate("נעילה בטביעת אצבע", "אימות כדי להפעיל") {
+                                    host.authenticate("נעילה בטביעת אצבע", "אימות להפעלה") {
                                         store.updateBiometricLock(true)
                                         android.widget.Toast.makeText(
                                             context, "המסתור נעול בטביעת אצבע", android.widget.Toast.LENGTH_SHORT
@@ -1058,7 +1058,7 @@ fun LauncherScreen(
                                     }
                                 BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
                                     android.widget.Toast.makeText(
-                                        context, "אין טביעת אצבע רשומה במכשיר. הוסף אחת בהגדרות האבטחה",
+                                        context, "לא נרשמה טביעת אצבע במכשיר. ניתן להוסיף אותה בהגדרות האבטחה",
                                         android.widget.Toast.LENGTH_LONG
                                     ).show()
                                     runCatching {
@@ -1069,7 +1069,7 @@ fun LauncherScreen(
                                     }
                                 }
                                 else -> android.widget.Toast.makeText(
-                                    context, "המכשיר לא תומך בטביעת אצבע", android.widget.Toast.LENGTH_SHORT
+                                    context, "המכשיר אינו תומך בטביעת אצבע", android.widget.Toast.LENGTH_SHORT
                                 ).show()
                             }
                         }
@@ -1112,7 +1112,7 @@ fun LauncherScreen(
                         drawerOpen = false
                         settingsOpen = false
                         hiddenOpen = false
-                        toast("נעול עד ${TimedLockText.clock(until)}")
+                        toast("נעול עד השעה ${TimedLockText.clock(until)}")
                     },
                     onDismiss = { timedLockDialog = false }
                 )
@@ -1243,7 +1243,7 @@ fun LauncherScreen(
                 AlertDialog(
                     onDismissRequest = { deleteTarget = null },
                     title = { Text("למחוק את \"${deleting.label}\"?") },
-                    text = { Text("האפליקציות שבתיקייה לא יימחקו. הן יחזרו לקטגוריה שלהן ב-Google Play.") },
+                    text = { Text("האפליקציות שבתיקייה לא יימחקו, אלא יחזרו לקטגוריה שלהן ב-Google Play.") },
                     confirmButton = {
                         TextButton(onClick = {
                             CategoryRepository.deleteFolder(context, deleting.id)

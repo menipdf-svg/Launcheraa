@@ -55,7 +55,7 @@ fun HiddenAppsScreen(
             if (apps.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        "אין אפליקציות מוסתרות.\nכדי להסתיר: לחיצה ארוכה על אפליקציה ← הסתרה",
+                        "אין אפליקציות מוסתרות.\nלהסתרת אפליקציה: לחיצה ארוכה עליה ← הסתרה",
                         textAlign = TextAlign.Center,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -63,7 +63,7 @@ fun HiddenAppsScreen(
                 }
             } else {
                 Text(
-                    "לחיצה ארוכה על אפליקציה כדי להחזיר אותה",
+                    "לחיצה ארוכה על אפליקציה תחזיר אותה ללאנצ'ר",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp)
