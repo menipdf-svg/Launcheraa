@@ -1,5 +1,6 @@
 package com.meni.pixellauncher
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,16 +10,32 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+
+/** הקטגוריות במסך ההגדרות, לפי הסדר שבו הן מוצגות */
+private enum class SettingsSection(val title: String, val subtitle: String) {
+    APPEARANCE("מראה", "גודל וצורת אייקונים, חבילת אייקונים"),
+    HOME("מסך הבית", "פריסת רשת, מעברים, נקודות התראה, טפט"),
+    GLANCE("במבט חטוף", "תאריך עברי, שקיעה, יומן, מתנגן עכשיו"),
+    DRAWER("מגירת אפליקציות", "עמודות, קטגוריות, תיקיות, הצעות"),
+    SEARCH("חיפוש במגירה", "אנשי קשר, מחשבון, הגדרות, אינטרנט"),
+    GESTURES("מחוות", "מה כל מחווה במסך הבית עושה"),
+    DOCK("Dock חכם", "החלפת ה-Dock כשמחוברות אוזניות או רכב"),
+    PRIVACY("פרטיות ונעילה", "אפליקציות מוסתרות, קוד, מצב בטוח"),
+    BACKUP("גיבוי ושחזור", "שמירה לקובץ, שחזור ואיפוס"),
+    GENERAL("כללי", "אפליקציית ברירת המחדל")
+}
 
 @Composable
 fun SettingsScreen(
@@ -44,6 +61,10 @@ fun SettingsScreen(
     onRemoveOwner: () -> Unit,
     onClose: () -> Unit
 ) {
+    // null = המסך הראשי עם רשימת הקטגוריות
+    var section by remember { mutableStateOf<SettingsSection?>(null) }
+    BackHandler(enabled = section != null) { section = null }
+
     var confirmReset by remember { mutableStateOf(false) }
     var editingGesture by remember { mutableStateOf<LauncherGesture?>(null) }
     var pickingAppFor by remember { mutableStateOf<LauncherGesture?>(null) }
@@ -192,9 +213,15 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(start = 24.dp, end = 8.dp, top = 12.dp, bottom = 8.dp)
             ) {
+                if (section != null) {
+                    IconButton(onClick = { section = null }) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "חזרה")
+                    }
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(
-                    "הגדרות",
-                    fontSize = 30.sp,
+                    section?.title ?: "הגדרות",
+                    fontSize = if (section == null) 30.sp else 24.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
@@ -210,8 +237,10 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                if (section == null) SectionList { section = it }
+
                 // ---------- מצב בטוח ----------
-                SettingsGroup("מצב בטוח") {
+                if (section == SettingsSection.PRIVACY) SettingsGroup("מצב בטוח") {
                     SettingSwitch(
                         title = "מצב בטוח",
                         subtitle = if (store.safeMode) "פעיל: רק האפליקציות שבחרת זמינות, וההגדרות דורשות אימות"
@@ -254,7 +283,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- סמלים ----------
-                SettingsGroup("סמלים") {
+                if (section == SettingsSection.APPEARANCE) SettingsGroup("סמלים") {
                     IconPreview(previewApps, store)
                     SettingSlider(
                         title = "גודל אייקון",
@@ -289,7 +318,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- מסך הבית ----------
-                SettingsGroup("מסך הבית") {
+                if (section == SettingsSection.HOME) SettingsGroup("מסך הבית") {
                     GridSetting(store)
                     SettingChoice(
                         title = "מעבר בין מסכים",
@@ -327,7 +356,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- במבט חטוף ----------
-                SettingsGroup("במבט חטוף") {
+                if (section == SettingsSection.GLANCE) SettingsGroup("במבט חטוף") {
                     SettingSwitch(
                         title = "תאריך עברי",
                         subtitle = "מתחת לתאריך. אחרי השקיעה עובר ליום הבא",
@@ -360,7 +389,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- מגירת אפליקציות ----------
-                SettingsGroup("מגירת אפליקציות") {
+                if (section == SettingsSection.DRAWER) SettingsGroup("מגירת אפליקציות") {
                     SettingChoice(
                         title = "עמודות במגירה",
                         options = listOf(4, 5, 6),
@@ -419,7 +448,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- מחוות ----------
-                SettingsGroup("מחוות במסך הבית") {
+                if (section == SettingsSection.GESTURES) SettingsGroup("מחוות במסך הבית") {
                     LauncherGesture.entries.forEach { gesture ->
                         val action = store.gestureActions[gesture] ?: GestureAction.NONE
                         val appName = if (action == GestureAction.APP) {
@@ -441,7 +470,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- אפליקציות מוסתרות ----------
-                SettingsGroup("אפליקציות מוסתרות") {
+                if (section == SettingsSection.PRIVACY) SettingsGroup("אפליקציות מוסתרות") {
                     SettingAction(
                         title = "הצגת האפליקציות המוסתרות",
                         subtitle = if (hiddenCount == 0) "אין אפליקציות מוסתרות" else "$hiddenCount אפליקציות מוסתרות",
@@ -476,7 +505,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- Dock חכם ----------
-                SettingsGroup("Dock חכם") {
+                if (section == SettingsSection.DOCK) SettingsGroup("Dock חכם") {
                     SettingSwitch(
                         title = "Dock לאוזניות ולרכב",
                         subtitle = "כשאוזניות או מערכת שמע של רכב מחוברות, ה-Dock מתחלף",
@@ -495,7 +524,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- חיפוש ----------
-                SettingsGroup("חיפוש במגירה") {
+                if (section == SettingsSection.SEARCH) SettingsGroup("חיפוש במגירה") {
                     SettingSwitch(
                         title = "אנשי קשר",
                         subtitle = "חיפוש ושיחה ישר מהמגירה (צריך הרשאת אנשי קשר)",
@@ -525,7 +554,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- גיבוי ----------
-                SettingsGroup("גיבוי ושחזור") {
+                if (section == SettingsSection.BACKUP) SettingsGroup("גיבוי ושחזור") {
                     SettingAction(
                         title = "שמירת גיבוי",
                         subtitle = "הסידור, התיקיות, השמות וההגדרות לקובץ אחד (בלי קודים)",
@@ -547,7 +576,7 @@ fun SettingsScreen(
                 }
 
                 // ---------- כללי ----------
-                SettingsGroup("כללי") {
+                if (section == SettingsSection.GENERAL) SettingsGroup("כללי") {
                     SettingAction(
                         title = "אפליקציית הבית",
                         subtitle = "הגדרת PixelLauncher כברירת מחדל",
@@ -1007,4 +1036,42 @@ private fun IconPackDialog(current: String?, onPick: (String?) -> Unit, onDismis
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("סגירה") } }
     )
+}
+
+/** המסך הראשי: רשימת הקטגוריות */
+@Composable
+private fun SectionList(onPick: (SettingsSection) -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        SettingsSection.entries.forEach { item ->
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.fillMaxWidth().clickable { onPick(item) }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.title, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            item.subtitle,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp).rotate(180f)
+                    )
+                }
+            }
+        }
+    }
 }
