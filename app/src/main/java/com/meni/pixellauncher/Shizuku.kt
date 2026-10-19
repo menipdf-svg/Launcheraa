@@ -76,6 +76,43 @@ object ShizukuBridge {
         }.getOrElse { Result(-1, it.message ?: "שגיאה לא ידועה") }
     }
 
+    /**
+     * אפליקציות שלעולם אינן מושעות: הלאנצ'ר עצמו, Shizuku, וחיוג חירום.
+     * בלעדיהן לא ניתן יהיה לבטל את החסימה.
+     */
+    private val NEVER_SUSPEND = setOf(
+        "com.meni.pixellauncher",
+        PACKAGE,
+        "com.android.settings",
+        "com.android.systemui",
+        "com.android.dialer",
+        "com.google.android.dialer",
+        "com.samsung.android.dialer",
+        "com.android.emergency"
+    )
+
+    /**
+     * משעה או משחרר אפליקציות. אפליקציה מושעית אינה נפתחת כלל:
+     * המערכת חוסמת אותה ומציגה הודעה, והאייקון שלה מופיע מעומעם.
+     *
+     * מחזיר null בהצלחה, ואחרת הודעת שגיאה.
+     */
+    suspend fun suspendApps(packages: Collection<String>, suspend: Boolean): String? {
+        val targets = packages.filterNot { it in NEVER_SUSPEND }.distinct()
+        if (targets.isEmpty()) return null
+        val verb = if (suspend) "suspend" else "unsuspend"
+        // בקבוצות, כדי לא לחרוג מאורך שורת הפקודה
+        val failures = mutableListOf<String>()
+        targets.chunked(40).forEach { batch ->
+            val result = run("pm $verb ${batch.joinToString(" ")}")
+            if (!result.ok || result.output.contains("Error", ignoreCase = true)) {
+                failures += result.output.ifBlank { "pm $verb נכשלה" }
+            }
+        }
+        if (failures.isEmpty()) return null
+        return failures.first().take(200)
+    }
+
     /** הפקודה שהופכת את הלאנצ'ר למנהל מכשיר */
     const val DEVICE_OWNER_COMMAND =
         "dpm set-device-owner com.meni.pixellauncher/.AdminReceiver"

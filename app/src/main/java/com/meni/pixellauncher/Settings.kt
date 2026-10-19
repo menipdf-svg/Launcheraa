@@ -89,6 +89,7 @@ fun SettingsScreen(
     onEmergencyPin: (PinMode) -> Unit,
     onRemoveOwner: () -> Unit,
     onOwnerChanged: () -> Unit,
+    onShizukuBlockChange: (Boolean) -> Unit,
     onClose: () -> Unit
 ) {
     // null = המסך הראשי עם רשימת הקטגוריות
@@ -325,8 +326,22 @@ fun SettingsScreen(
                     } else {
                         SettingAction(
                             title = "נעילה מלאה (מצב קיוסק)",
-                            subtitle = "חסימה ברמת המערכת. נדרשת הגדרה חד-פעמית מהמחשב",
+                            subtitle = "חסימה ברמת המערכת. נדרשת הגדרה חד-פעמית, מהטלפון באמצעות Shizuku או מהמחשב",
                             onClick = { showKioskSetup = true }
+                        )
+                        SettingSwitch(
+                            title = "חסימת אפליקציות דרך Shizuku",
+                            subtitle = "חלופה לנעילה מלאה: במצב בטוח, כל אפליקציה שאינה מאושרת מושעית ואינה נפתחת. " +
+                                "אינה חוסמת יציאה למסך הבית",
+                            checked = store.shizukuBlock,
+                            onCheckedChange = { enable ->
+                                if (enable && ShizukuBridge.state(context) != ShizukuBridge.State.READY) {
+                                    toast("יש להתקין ולאשר את Shizuku תחילה")
+                                    showKioskSetup = true
+                                } else {
+                                    onShizukuBlockChange(enable)
+                                }
+                            }
                         )
                     }
                 }

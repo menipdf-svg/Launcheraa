@@ -295,6 +295,15 @@ class LauncherStore(context: Context) {
         addAll(prefs.getStringSet("safeApps", emptySet()).orEmpty())
     }
 
+    /** חסימת האפליקציות שאינן מאושרות דרך Shizuku, במקום נעילה מלאה */
+    var shizukuBlock by mutableStateOf(prefs.getBoolean("shizukuBlock", false))
+        private set
+
+    fun updateShizukuBlock(enabled: Boolean) {
+        shizukuBlock = enabled
+        prefs.edit().putBoolean("shizukuBlock", enabled).apply()
+    }
+
     // ---------- נעילה לזמן קצוב ----------
 
     /** עד מתי הטלפון נעול (0 = לא נעול) */

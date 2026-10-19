@@ -168,6 +168,30 @@ fun LauncherScreen(
 
     fun toast(text: String) = android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_SHORT).show()
 
+    /**
+     * חסימה דרך Shizuku: משעה את כל האפליקציות שאינן מאושרות, או משחררת אותן.
+     * חלופה לנעילה מלאה, למי שאינו מגדיר את הלאנצ'ר כמנהל מכשיר.
+     */
+    suspend fun applyShizukuBlock(block: Boolean) {
+        if (ShizukuBridge.state(context) != ShizukuBridge.State.READY) {
+            if (block) toast("Shizuku אינו זמין, ולכן האפליקציות לא נחסמו")
+            return
+        }
+        val allowedPackages = allowedKeys.map { it.substringBefore('/') }.toSet()
+        val all = apps.map { it.packageName }.distinct()
+        val failure = if (block) {
+            ShizukuBridge.suspendApps(all.filterNot { it in allowedPackages }, true)
+        } else {
+            ShizukuBridge.suspendApps(all, false)
+        }
+        if (failure != null) toast(failure)
+    }
+
+    // חסימה וביטול חסימה עוקבים אחרי המצב הבטוח ואחרי הנעילה לזמן קצוב
+    LaunchedEffect(safeActive, allowedKeys, store.shizukuBlock) {
+        if (store.shizukuBlock) applyShizukuBlock(safeActive)
+    }
+
     // ספירה לאחור של הנעילה, ושחרור אוטומטי כשהזמן נגמר
     LaunchedEffect(store.lockUntil, refreshKey) {
         now = System.currentTimeMillis()
@@ -1023,6 +1047,11 @@ fun LauncherScreen(
                     },
                     onOwnerChanged = { isOwner = host.isDeviceOwner() },
                     allApps = apps,
+                    onShizukuBlockChange = { enable ->
+                        store.updateShizukuBlock(enable)
+                        // כיבוי החסימה משחרר מיד את כל מה שהושעה
+                        if (!enable) scope.launch { applyShizukuBlock(false) }
+                    },
                     onSafeModeChange = { enable ->
                         if (!enable) {
                             store.updateSafeMode(false)
