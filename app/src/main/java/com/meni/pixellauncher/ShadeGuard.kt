@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.TextUtils
 import android.view.accessibility.AccessibilityEvent
@@ -17,6 +19,17 @@ import android.view.accessibility.AccessibilityEvent
 class ShadeGuardService : AccessibilityService() {
 
     private val prefs by lazy { getSharedPreferences("launcher_layout", Context.MODE_PRIVATE) }
+    private val handler = Handler(Looper.getMainLooper())
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        connected = true
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        connected = false
+        return super.onUnbind(intent)
+    }
 
     /** האם כרגע יש לחסום: המצב הבטוח פעיל או שהנעילה לזמן קצוב בתוקף */
     private fun shouldBlock(): Boolean {
@@ -28,27 +41,64 @@ class ShadeGuardService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || !shouldBlock()) return
-        if (event.packageName != "com.android.systemui") return
-        // GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE נוסף באנדרואיד 12
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
-        } else {
-            performGlobalAction(GLOBAL_ACTION_BACK)
+        if (!shadeIsOpen()) return
+        dismissRepeatedly()
+    }
+
+    /**
+     * זיהוי המגירה לפי החלונות הפעילים: חלון מסוג TYPE_SYSTEM שאינו שורת הסטטוס
+     * מעיד על מגירה פתוחה. כך אין צורך בקריאת תוכן המסך.
+     */
+    private fun shadeIsOpen(): Boolean = runCatching {
+        windows.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_SYSTEM }
+    }.getOrDefault(true) // אם לא ניתן לבדוק, מוטב לנסות לסגור
+
+    /**
+     * המערכת מתעלמת לעיתים מקריאה בודדת, בעיקר בעת האנימציה של הפתיחה,
+     * ולכן הפעולה חוזרת כמה פעמים ברווחים קצרים.
+     */
+    private fun dismissRepeatedly() {
+        repeat(4) { attempt ->
+            handler.postDelayed({ if (shouldBlock()) dismissOnce() }, attempt * 120L)
+        }
+    }
+
+    private fun dismissOnce() {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
+            } else {
+                performGlobalAction(GLOBAL_ACTION_BACK)
+            }
         }
     }
 
     override fun onInterrupt() = Unit
 
+    override fun onDestroy() {
+        connected = false
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+
     companion object {
+        /** האם השירות מחובר כרגע ומקבל אירועים */
+        @Volatile
+        var connected = false
+            private set
+
         /** האם שירות הנגישות מופעל בהגדרות המערכת */
         fun enabled(context: Context): Boolean {
             val expected = "${context.packageName}/${ShadeGuardService::class.java.name}"
+            val short = "${context.packageName}/.${ShadeGuardService::class.java.simpleName}"
             val running = Settings.Secure.getString(
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ).orEmpty()
             if (TextUtils.isEmpty(running)) return false
-            return running.split(':').any { it.equals(expected, ignoreCase = true) }
+            return running.split(':').any {
+                it.equals(expected, ignoreCase = true) || it.equals(short, ignoreCase = true)
+            }
         }
 
         /** פותח את מסך הנגישות, שבו המשתמש מפעיל את השירות */

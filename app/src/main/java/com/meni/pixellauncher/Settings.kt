@@ -106,10 +106,13 @@ fun SettingsScreen(
     fun toast(text: String) = android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_SHORT).show()
 
     // אישור הנגישות ניתן במסך של המערכת, ולכן נבדק שוב בחזרה לכאן
+    val safeOrLocked = store.safeMode || store.lockUntil > System.currentTimeMillis()
     var shadeGuardOn by remember { mutableStateOf(ShadeGuardService.enabled(context)) }
+    var shadeGuardConnected by remember { mutableStateOf(ShadeGuardService.connected) }
     LaunchedEffect(Unit) {
         while (true) {
             shadeGuardOn = ShadeGuardService.enabled(context)
+            shadeGuardConnected = ShadeGuardService.connected
             kotlinx.coroutines.delay(1_500)
         }
     }
@@ -340,10 +343,15 @@ fun SettingsScreen(
                         )
                         SettingSwitch(
                             title = "חסימת מגירת ההתראות",
-                            subtitle = if (store.blockShade && !shadeGuardOn)
-                                "נדרש אישור נגישות. לחיצה לאישור"
-                            else
-                                "בזמן מצב בטוח או נעילה לזמן קצוב, מגירת ההתראות תיסגר מיד עם פתיחתה",
+                            subtitle = when {
+                                !store.blockShade ->
+                                    "בזמן מצב בטוח או נעילה לזמן קצוב, מגירת ההתראות תיסגר מיד עם פתיחתה"
+                                !shadeGuardOn -> "נדרש אישור נגישות. לחיצה לאישור"
+                                !shadeGuardConnected ->
+                                    "האישור ניתן, אך השירות אינו פעיל. לחיצה לפתיחת מסך הנגישות"
+                                !safeOrLocked -> "פעיל. ייכנס לתוקף כשיידלק המצב הבטוח או נעילה לזמן קצוב"
+                                else -> "פעיל וחוסם כעת"
+                            },
                             checked = store.blockShade,
                             onCheckedChange = { enable ->
                                 store.updateBlockShade(enable)
@@ -353,10 +361,24 @@ fun SettingsScreen(
                                 }
                             }
                         )
+                        if (store.blockShade && shadeGuardOn && !shadeGuardConnected) {
+                            SettingAction(
+                                title = "פתיחת הגדרות הנגישות",
+                                subtitle = "יש לכבות ולהדליק מחדש את PixelLauncher ברשימה",
+                                onClick = { ShadeGuardService.openSettings(context) }
+                            )
+                        }
                         SettingSwitch(
                             title = "חסימת אפליקציות דרך Shizuku",
-                            subtitle = "חלופה לנעילה מלאה: במצב בטוח, כל אפליקציה שאינה מאושרת מושעית ואינה נפתחת. " +
-                                "אינה חוסמת יציאה למסך הבית",
+                            subtitle = when {
+                                !store.shizukuBlock ->
+                                    "חלופה לנעילה מלאה: במצב בטוח, כל אפליקציה שאינה מאושרת מושעית ואינה נפתחת. " +
+                                        "אינה חוסמת יציאה למסך הבית"
+                                ShizukuBridge.state(context) != ShizukuBridge.State.READY ->
+                                    "Shizuku אינו פעיל כרגע, ולכן החסימה אינה פועלת. יש להפעילו מחדש"
+                                !safeOrLocked -> "פעיל. ייכנס לתוקף כשיידלק המצב הבטוח או נעילה לזמן קצוב"
+                                else -> "פעיל וחוסם כעת"
+                            },
                             checked = store.shizukuBlock,
                             onCheckedChange = { enable ->
                                 if (enable && ShizukuBridge.state(context) != ShizukuBridge.State.READY) {

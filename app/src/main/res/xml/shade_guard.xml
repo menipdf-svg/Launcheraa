@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  בלי android:packageNames: אירועי typeWindowsChanged אינם נושאים שם חבילה,
+  ולכן סינון לפי חבילה היה מסתיר דווקא את האירוע שמעיד על פתיחת המגירה.
+-->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged|typeNotificationStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="false"
     android:description="@string/shade_guard_description"
-    android:notificationTimeout="0"
-    android:packageNames="com.android.systemui" />
+    android:notificationTimeout="0" />
