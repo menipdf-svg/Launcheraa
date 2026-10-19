@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,6 +88,7 @@ fun SettingsScreen(
     isDeviceOwner: Boolean,
     onEmergencyPin: (PinMode) -> Unit,
     onRemoveOwner: () -> Unit,
+    onOwnerChanged: () -> Unit,
     onClose: () -> Unit
 ) {
     // null = המסך הראשי עם רשימת הקטגוריות
@@ -163,7 +165,14 @@ fun SettingsScreen(
     var showKioskSetup by remember { mutableStateOf(false) }
     var confirmRemoveOwner by remember { mutableStateOf(false) }
 
-    if (showKioskSetup) KioskSetupDialog(onDismiss = { showKioskSetup = false })
+    if (showKioskSetup) KioskSetupDialog(
+        onGranted = {
+            onOwnerChanged()
+            showKioskSetup = false
+            toast("הנעילה המלאה הופעלה")
+        },
+        onDismiss = { showKioskSetup = false }
+    )
     if (confirmRemoveOwner) {
         AlertDialog(
             onDismissRequest = { confirmRemoveOwner = false },
@@ -992,21 +1001,103 @@ fun SafeAppsDialog(
 
 private const val DEVICE_OWNER_COMMAND = "adb shell dpm set-device-owner com.meni.pixellauncher/.AdminReceiver"
 
-/** הוראות להפעלת נעילה מלאה: הגדרת הלאנצ'ר כמנהל מכשיר דרך adb */
+/** הוראות להפעלת נעילה מלאה: דרך Shizuku מהטלפון, או דרך adb מהמחשב */
 @Composable
-private fun KioskSetupDialog(onDismiss: () -> Unit) {
+private fun KioskSetupDialog(onGranted: () -> Unit, onDismiss: () -> Unit) {
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
+
+    // מצב Shizuku נבדק מחדש בכל חזרה למסך, כדי לשקף התקנה או אישור שנעשו בינתיים
+    var shizuku by remember { mutableStateOf(ShizukuBridge.state(context)) }
+    var running by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            shizuku = ShizukuBridge.state(context)
+            kotlinx.coroutines.delay(1_000)
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("הפעלת נעילה מלאה") },
         text = {
             Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
                 Text(
-                    "נעילה מסוג זה מתאפשרת באנדרואיד רק ל\"מנהל מכשיר\", והגדרתו מתבצעת פעם אחת מהמחשב:",
+                    "נעילה מסוג זה מתאפשרת באנדרואיד רק ל\"מנהל מכשיר\". ניתן להגדיר זאת מהטלפון עצמו באמצעות Shizuku, או מהמחשב באמצעות adb.",
                     fontSize = 15.sp
                 )
-                Spacer(Modifier.height(12.dp))
+
+                // ---------- המסלול הקצר: Shizuku ----------
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "מהטלפון, באמצעות Shizuku",
+                    fontSize = 15.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    when (shizuku) {
+                        ShizukuBridge.State.NOT_INSTALLED ->
+                            "Shizuku הוא יישום חינמי המעניק הרשאות ברמת ADB בלי מחשב ובלי רוט. יש להתקינו ולהפעילו פעם אחת."
+                        ShizukuBridge.State.NOT_RUNNING ->
+                            "Shizuku מותקן אך השירות אינו פעיל. יש לפתוח אותו ולהפעיל את השירות (באנדרואיד 11 ומעלה הדבר אפשרי דרך ניפוי באגים אלחוטי, ללא מחשב)."
+                        ShizukuBridge.State.NO_PERMISSION ->
+                            "השירות פעיל. נדרש אישור חד-פעמי של הלאנצ'ר ב-Shizuku."
+                        ShizukuBridge.State.READY ->
+                            "Shizuku פעיל ומאושר. לחיצה על הכפתור תגדיר את הלאנצ'ר כמנהל מכשיר."
+                    },
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
+                error?.let {
+                    Text(
+                        it,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+                TextButton(
+                    enabled = !running,
+                    onClick = {
+                        error = null
+                        when (shizuku) {
+                            ShizukuBridge.State.NOT_INSTALLED -> AppsRepository.openPlayStore(context, ShizukuBridge.PACKAGE)
+                            ShizukuBridge.State.NOT_RUNNING -> AppsRepository.openApp(context, ShizukuBridge.PACKAGE)
+                            ShizukuBridge.State.NO_PERMISSION -> ShizukuBridge.requestPermission()
+                            ShizukuBridge.State.READY -> {
+                                running = true
+                                scope.launch {
+                                    val failure = ShizukuBridge.setDeviceOwner()
+                                    running = false
+                                    if (failure == null) onGranted() else error = failure
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        when {
+                            running -> "מגדיר…"
+                            shizuku == ShizukuBridge.State.NOT_INSTALLED -> "התקנת Shizuku"
+                            shizuku == ShizukuBridge.State.NOT_RUNNING -> "פתיחת Shizuku"
+                            shizuku == ShizukuBridge.State.NO_PERMISSION -> "אישור ההרשאה"
+                            else -> "הפעלת נעילה מלאה עכשיו"
+                        }
+                    )
+                }
+
+                HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                Text(
+                    "מהמחשב, באמצעות adb",
+                    fontSize = 15.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(8.dp))
                 listOf(
                     "1. בטלפון: הגדרות ← חשבונות. יש להסיר זמנית את כל החשבונות (גוגל, סמסונג וכדומה), שכן אנדרואיד אינו מאפשר הגדרת מנהל מכשיר כאשר קיימים חשבונות.",
                     "2. יש לחבר את הטלפון למחשב באמצעות כבל, כאשר ניפוי באגים ב-USB מופעל.",

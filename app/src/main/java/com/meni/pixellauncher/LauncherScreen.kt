@@ -1021,6 +1021,7 @@ fun LauncherScreen(
                         isOwner = false
                         toast("הנעילה המלאה בוטלה")
                     },
+                    onOwnerChanged = { isOwner = host.isDeviceOwner() },
                     allApps = apps,
                     onSafeModeChange = { enable ->
                         if (!enable) {

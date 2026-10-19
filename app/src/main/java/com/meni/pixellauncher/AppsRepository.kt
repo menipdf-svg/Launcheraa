@@ -115,6 +115,27 @@ object AppsRepository {
         )
     }
 
+    /** פותח את דף האפליקציה ב-Google Play, או בדפדפן אם Play אינו זמין */
+    fun openPlayStore(context: Context, packageName: String) {
+        val play = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val opened = runCatching { context.startActivity(play); true }.getOrDefault(false)
+        if (!opened) {
+            start(
+                context,
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+
+    /** פותח אפליקציה מותקנת לפי שם החבילה */
+    fun openApp(context: Context, packageName: String) {
+        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (intent != null) start(context, intent) else openAppInfo(context, packageName)
+    }
+
     fun uninstall(context: Context, packageName: String) {
         start(
             context,
