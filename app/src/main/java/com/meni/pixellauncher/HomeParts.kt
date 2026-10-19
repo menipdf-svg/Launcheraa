@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -425,10 +427,8 @@ fun AppDrawer(
                 }
             }
 
-            // חיפוש: מחשבון, המרות, אנשי קשר, הגדרות ואינטרנט. בלי חיפוש: הצעות חכמות
-            if (query.isNotBlank()) {
-                searchExtras(query.trim())
-            } else if (suggestions.isNotEmpty() && openCategory == null) {
+            // בלי חיפוש: הצעות חכמות. בחיפוש, התוצאות הנוספות מופיעות מתחת לאפליקציות
+            if (query.isBlank() && suggestions.isNotEmpty() && openCategory == null) {
                 Text(
                     "הצעות",
                     fontSize = 13.sp,
@@ -449,18 +449,22 @@ fun AppDrawer(
             }
 
             if (filtered.isEmpty() && query.isNotBlank()) {
-                Box(
+                // אין אפליקציה מתאימה, ולכן מוצגות רק התוצאות הנוספות
+                Column(
                     Modifier
                         .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.TopCenter
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
                 ) {
                     Text(
                         "לא נמצאו אפליקציות",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 15.sp,
-                        modifier = Modifier.padding(top = 48.dp)
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(top = 32.dp, bottom = 8.dp)
                     )
+                    searchExtras(query.trim())
                 }
             } else {
                 LazyVerticalGrid(
@@ -527,6 +531,18 @@ fun AppDrawer(
                             ) {
                                 appContent(entry.app)
                             }
+                        }
+                    }
+
+                    // תוצאות נוספות: מחשבון, המרות, אנשי קשר, הגדרות ואינטרנט.
+                    // תמיד מתחת לאפליקציות, כדי שהאפליקציות יופיעו ראשונות
+                    if (query.isNotBlank()) {
+                        item(
+                            key = "search-extras",
+                            span = { GridItemSpan(maxLineSpan) },
+                            contentType = 3
+                        ) {
+                            searchExtras(query.trim())
                         }
                     }
                 }

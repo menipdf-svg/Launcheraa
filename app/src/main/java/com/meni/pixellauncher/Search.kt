@@ -345,12 +345,20 @@ fun UniversalResults(query: String, store: LauncherStore, safeMode: Boolean, onA
 
     Column(
         Modifier
+            // בלי גלילה פנימית: התוצאות הנוספות נגללות יחד עם רשימת האפליקציות
             .fillMaxWidth()
-            .heightIn(max = 300.dp)
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
+        // כותרת מפרידה: האפליקציות מופיעות מעל, וכאן מתחילות התוצאות הנוספות
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        Text(
+            "תוצאות נוספות",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
+        )
+
         // תשובה (מחשבון או המרה). לחיצה מעתיקה
         if (answer != null) {
             Surface(
