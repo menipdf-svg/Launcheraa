@@ -1081,6 +1081,19 @@ private fun KioskSetupDialog(onGranted: () -> Unit, onDismiss: () -> Unit) {
         }
     }
 
+    // מה שחוסם את ההגדרה. נקרא מהמכשיר דרך Shizuku, ונבדק שוב בכל חזרה למסך
+    var blockers by remember { mutableStateOf(ShizukuBridge.Blockers(emptyList(), emptyList(), false)) }
+    var checking by remember { mutableStateOf(false) }
+    suspend fun refreshBlockers() {
+        if (shizuku != ShizukuBridge.State.READY) return
+        checking = true
+        blockers = ShizukuBridge.blockers()
+        checking = false
+    }
+    LaunchedEffect(shizuku) {
+        if (shizuku == ShizukuBridge.State.READY) refreshBlockers()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("הפעלת נעילה מלאה") },
@@ -1113,6 +1126,63 @@ private fun KioskSetupDialog(onGranted: () -> Unit, onDismiss: () -> Unit) {
                     fontSize = 14.sp,
                     modifier = Modifier.padding(vertical = 6.dp)
                 )
+                // ---------- מה שחוסם את ההגדרה ----------
+                if (shizuku == ShizukuBridge.State.READY) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (blockers.clear) MaterialTheme.colorScheme.surfaceContainerHighest
+                            else MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                when {
+                                    checking -> "בודק מה חוסם את ההגדרה…"
+                                    blockers.clear -> "המכשיר מוכן: אין חשבונות ואין פרופילים נוספים ✓"
+                                    !blockers.checked -> "לא ניתן לבדוק את החשבונות"
+                                    else -> "לפני ההגדרה יש להסיר:"
+                                },
+                                fontSize = 14.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            )
+                            if (blockers.accounts.isNotEmpty()) {
+                                Text(
+                                    "חשבונות (${blockers.accounts.size}):",
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                                blockers.accounts.forEach {
+                                    Text("•  $it", fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+                                }
+                                TextButton(onClick = { AppsRepository.openAccountSettings(context) }) {
+                                    Text("פתיחת הגדרות החשבונות")
+                                }
+                            }
+                            if (blockers.profiles.isNotEmpty()) {
+                                Text(
+                                    "פרופילים נוספים (${blockers.profiles.size}):",
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                                blockers.profiles.forEach {
+                                    Text("•  $it", fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+                                }
+                                Text(
+                                    "מרחב פרטי נמחק בהגדרות ← אבטחה ופרטיות ← מרחב פרטי",
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                            if (!blockers.clear) {
+                                TextButton(
+                                    enabled = !checking,
+                                    onClick = { scope.launch { refreshBlockers() } }
+                                ) { Text("בדיקה מחדש") }
+                            }
+                        }
+                    }
+                }
+
                 error?.let {
                     Text(
                         it,
@@ -1134,7 +1204,13 @@ private fun KioskSetupDialog(onGranted: () -> Unit, onDismiss: () -> Unit) {
                                 scope.launch {
                                     val failure = ShizukuBridge.setDeviceOwner()
                                     running = false
-                                    if (failure == null) onGranted() else error = failure
+                                    if (failure == null) {
+                                        onGranted()
+                                    } else {
+                                        error = failure
+                                        // הצגת הרשימה המעודכנת, כדי שיתברר מה עוד חוסם
+                                        refreshBlockers()
+                                    }
                                 }
                             }
                         }

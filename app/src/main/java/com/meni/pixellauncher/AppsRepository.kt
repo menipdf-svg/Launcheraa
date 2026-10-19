@@ -115,6 +115,20 @@ object AppsRepository {
         )
     }
 
+    /** פותח את מסך החשבונות של המכשיר */
+    fun openAccountSettings(context: Context) {
+        val intents = listOf(
+            Intent("android.settings.SYNC_SETTINGS"),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        for (intent in intents) {
+            val ok = runCatching {
+                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+            }.getOrDefault(false)
+            if (ok) return
+        }
+    }
+
     /** פותח את דף האפליקציה ב-Google Play, או בדפדפן אם Play אינו זמין */
     fun openPlayStore(context: Context, packageName: String) {
         val play = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))

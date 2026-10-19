@@ -113,6 +113,59 @@ object ShizukuBridge {
         return failures.first().take(200)
     }
 
+    /**
+     * מה שחוסם את הגדרת מנהל המכשיר: חשבונות שיש להסיר, ופרופילים נוספים
+     * (מרחב פרטי, פרופיל עבודה, משתמש שני) שיש למחוק.
+     */
+    data class Blockers(
+        val accounts: List<String>,
+        val profiles: List<String>,
+        val checked: Boolean
+    ) {
+        val clear: Boolean get() = checked && accounts.isEmpty() && profiles.isEmpty()
+    }
+
+    private val ACCOUNT_LINE = Regex("""Account \{name=([^,]+), type=([^}]+)\}""")
+    private val USER_LINE = Regex("""UserInfo\{(\d+):([^:]*):""")
+
+    /** שמות קריאים לסוגי החשבונות הנפוצים */
+    private fun accountTypeLabel(type: String): String = when {
+        type.startsWith("com.google") -> "Google"
+        type.contains("samsung", ignoreCase = true) -> "Samsung"
+        type.contains("whatsapp", ignoreCase = true) -> "WhatsApp"
+        type.contains("telegram", ignoreCase = true) -> "Telegram"
+        type.contains("exchange", ignoreCase = true) -> "Exchange"
+        type.contains("microsoft", ignoreCase = true) || type.contains("outlook", ignoreCase = true) -> "Microsoft"
+        else -> type.substringAfterLast('.').ifBlank { type }
+    }
+
+    /** קורא מהמכשיר אילו חשבונות ופרופילים מונעים את ההגדרה */
+    suspend fun blockers(): Blockers {
+        val accounts = mutableListOf<String>()
+        val profiles = mutableListOf<String>()
+
+        val dump = run("dumpsys account")
+        if (dump.ok) {
+            ACCOUNT_LINE.findAll(dump.output).forEach { match ->
+                val (name, type) = match.destructured
+                val label = "${accountTypeLabel(type.trim())} · ${name.trim()}"
+                if (label !in accounts) accounts += label
+            }
+        }
+
+        val users = run("pm list users")
+        if (users.ok) {
+            USER_LINE.findAll(users.output).forEach { match ->
+                val id = match.groupValues[1]
+                val name = match.groupValues[2].trim()
+                // משתמש 0 הוא הבעלים, ואותו אין מוחקים
+                if (id != "0") profiles += if (name.isEmpty()) "פרופיל $id" else name
+            }
+        }
+
+        return Blockers(accounts, profiles, checked = dump.ok || users.ok)
+    }
+
     /** הפקודה שהופכת את הלאנצ'ר למנהל מכשיר */
     const val DEVICE_OWNER_COMMAND =
         "dpm set-device-owner com.meni.pixellauncher/.AdminReceiver"
