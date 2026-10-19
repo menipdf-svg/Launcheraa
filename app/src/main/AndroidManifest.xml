@@ -97,6 +97,20 @@
             </intent-filter>
         </service>
 
+        <!-- חסימת מגירת ההתראות בלי מנהל מכשיר -->
+        <service
+            android:name=".ShadeGuardService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/shade_guard" />
+        </service>
+
         <!-- מנהל מכשיר, בשביל נעילה מלאה (מצב קיוסק) -->
         <receiver
             android:name=".AdminReceiver"

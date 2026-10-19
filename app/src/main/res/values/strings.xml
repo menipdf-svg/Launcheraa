@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">PixelLauncher</string>
+    <string name="shade_guard_description">סוגר את מגירת ההתראות כל עוד המצב הבטוח או הנעילה לזמן קצוב פעילים. השירות אינו קורא את תוכן המסך.</string>
 </resources>

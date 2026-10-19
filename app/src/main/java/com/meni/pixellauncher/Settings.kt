@@ -105,6 +105,15 @@ fun SettingsScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     fun toast(text: String) = android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_SHORT).show()
 
+    // אישור הנגישות ניתן במסך של המערכת, ולכן נבדק שוב בחזרה לכאן
+    var shadeGuardOn by remember { mutableStateOf(ShadeGuardService.enabled(context)) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            shadeGuardOn = ShadeGuardService.enabled(context)
+            kotlinx.coroutines.delay(1_500)
+        }
+    }
+
     // הרשאות: היכולת נדלקת רק אחרי שההרשאה ניתנה
     var pendingFeature by remember { mutableStateOf<Feature?>(null) }
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -328,6 +337,21 @@ fun SettingsScreen(
                             title = "נעילה מלאה (מצב קיוסק)",
                             subtitle = "חסימה ברמת המערכת. נדרשת הגדרה חד-פעמית, מהטלפון באמצעות Shizuku או מהמחשב",
                             onClick = { showKioskSetup = true }
+                        )
+                        SettingSwitch(
+                            title = "חסימת מגירת ההתראות",
+                            subtitle = if (store.blockShade && !shadeGuardOn)
+                                "נדרש אישור נגישות. לחיצה לאישור"
+                            else
+                                "בזמן מצב בטוח או נעילה לזמן קצוב, מגירת ההתראות תיסגר מיד עם פתיחתה",
+                            checked = store.blockShade,
+                            onCheckedChange = { enable ->
+                                store.updateBlockShade(enable)
+                                if (enable && !shadeGuardOn) {
+                                    toast("יש לאשר ל-PixelLauncher גישת נגישות")
+                                    ShadeGuardService.openSettings(context)
+                                }
+                            }
                         )
                         SettingSwitch(
                             title = "חסימת אפליקציות דרך Shizuku",

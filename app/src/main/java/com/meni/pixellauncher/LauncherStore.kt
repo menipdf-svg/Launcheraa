@@ -304,6 +304,15 @@ class LauncherStore(context: Context) {
         prefs.edit().putBoolean("shizukuBlock", enabled).apply()
     }
 
+    /** חסימת מגירת ההתראות בזמן נעילה, באמצעות שירות נגישות */
+    var blockShade by mutableStateOf(prefs.getBoolean("blockShade", false))
+        private set
+
+    fun updateBlockShade(enabled: Boolean) {
+        blockShade = enabled
+        prefs.edit().putBoolean("blockShade", enabled).apply()
+    }
+
     // ---------- נעילה לזמן קצוב ----------
 
     /** עד מתי הטלפון נעול (0 = לא נעול) */
