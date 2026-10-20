@@ -287,6 +287,9 @@ fun LauncherScreen(
     var iconRefresh by remember { mutableIntStateOf(0) }
     // מחווה על אייקון: מפתח האפליקציה ← מפתח האפליקציה שתיפתח בהחלקה מעלה
     var swipeTarget by remember { mutableStateOf<AppInfo?>(null) }
+    // תיקייה פתוחה במסך הבית, ותיקייה שמשנים את שמה
+    var openFolder by remember { mutableStateOf<Long?>(null) }
+    var folderRename by remember { mutableStateOf<HomeItem?>(null) }
     var swipeMap by remember { mutableStateOf(emptyMap<String, String>()) }
     LaunchedEffect(refreshKey) { swipeMap = AppSwipes.all(context) }
 
@@ -608,6 +611,16 @@ fun LauncherScreen(
             return
         }
         val (cx, cy) = cell
+        // נפילה על אייקון קיים יוצרת תיקייה, או מוסיפה לתיקייה שכבר שם
+        val under = store.itemAt(page, cx, cy, ignoreId = drag.homeItemId)
+        if (under != null && !under.isWidget && store.mergeIntoFolder(under.id, app.key)) {
+            when (drag.source) {
+                DragSource.HOME -> store.removeItem(drag.homeItemId)
+                DragSource.DOCK -> store.removeFromDock(drag.dockIndex)
+                DragSource.DRAWER -> Unit
+            }
+            return
+        }
         when (drag.source) {
             DragSource.HOME -> store.moveItem(drag.homeItemId, page, cx, cy)
             DragSource.DOCK -> {
@@ -899,6 +912,19 @@ fun LauncherScreen(
                                                 onLongPress = { widgetToRemove = item },
                                                 modifier = itemModifier
                                             )
+                                        } else if (item.isFolder) {
+                                            val inside = item.folderApps.mapNotNull { appsByKey[it] }
+                                            Box(itemModifier, contentAlignment = Alignment.Center) {
+                                                HomeFolderTile(
+                                                    apps = inside,
+                                                    name = item.folderName,
+                                                    iconSize = cellIcon,
+                                                    shape = iconShape.toComposeShape(),
+                                                    showLabel = cellLabels && store.homeLabels,
+                                                    onClick = { openFolder = item.id },
+                                                    onRename = { folderRename = item }
+                                                )
+                                            }
                                         } else {
                                             val app = appsByKey[item.appKey]
                                             if (app != null) {
@@ -1398,6 +1424,47 @@ fun LauncherScreen(
                     iconTarget = null
                 }
                 LaunchedEffect(pickingIconFor.key) { picker.launch("image/*") }
+            }
+
+            // ================= תיקייה במסך הבית =================
+            val openFolderId = openFolder
+            val folderItem = openFolderId?.let { id -> store.home.firstOrNull { it.id == id } }
+            if (folderItem != null && folderItem.isFolder) {
+                HomeFolderDialog(
+                    apps = folderItem.folderApps.mapNotNull { appsByKey[it] },
+                    name = folderItem.folderName,
+                    onOpen = { app ->
+                        openFolder = null
+                        launchApp(app)
+                    },
+                    onRemove = { app ->
+                        store.removeFromFolder(folderItem.id, app.key)
+                        store.addAppAnywhere(app.key, folderItem.page)
+                        toast("${app.label} הוצאה מהתיקייה")
+                        if (folderItem.folderApps.size <= 2) openFolder = null
+                    },
+                    onRename = {
+                        openFolder = null
+                        folderRename = folderItem
+                    },
+                    onDismiss = { openFolder = null }
+                )
+            } else if (openFolderId != null) {
+                LaunchedEffect(openFolderId) { openFolder = null }
+            }
+
+            val renamingFolder = folderRename
+            if (renamingFolder != null) {
+                FolderNameDialog(
+                    title = "שם התיקייה",
+                    initial = renamingFolder.folderName,
+                    confirmLabel = "שמירה",
+                    onConfirm = { name ->
+                        store.renameHomeFolder(renamingFolder.id, name)
+                        folderRename = null
+                    },
+                    onDismiss = { folderRename = null }
+                )
             }
 
             // ================= מחווה על אייקון =================

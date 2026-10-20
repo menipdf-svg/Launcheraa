@@ -3,6 +3,9 @@ package com.meni.pixellauncher
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -11,6 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -27,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -360,4 +366,135 @@ fun NotificationDot(modifier: Modifier, iconSize: Dp, count: Int = 0) {
             )
         }
     }
+}
+
+/** אייקון תיקייה במסך הבית: עיגול עם ארבעה אייקונים קטנים בתוכו */
+@Composable
+fun HomeFolderTile(
+    apps: List<AppInfo>,
+    name: String,
+    iconSize: Dp,
+    shape: Shape,
+    showLabel: Boolean,
+    onClick: () -> Unit,
+    onRename: () -> Unit
+) {
+    val haptics = LocalHapticFeedback.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .pointerInput(apps.size, name) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onLongPress = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onRename()
+                    }
+                )
+            }
+            .padding(horizontal = 4.dp, vertical = 6.dp)
+    ) {
+        Box(
+            Modifier
+                .size(iconSize)
+                .clip(shape)
+                .background(Color.White.copy(alpha = 0.22f)),
+            contentAlignment = Alignment.Center
+        ) {
+            val mini = iconSize * 0.36f
+            Column(
+                verticalArrangement = Arrangement.spacedBy(iconSize * 0.05f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                apps.take(4).chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(iconSize * 0.05f)) {
+                        row.forEach { app ->
+                            Image(
+                                bitmap = app.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(mini)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (showLabel) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = name.ifBlank { "תיקייה" },
+                color = Color.White,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.4f), blurRadius = 4f))
+            )
+        }
+    }
+}
+
+/** התיקייה הפתוחה במסך הבית: רשת של האפליקציות שבתוכה */
+@Composable
+fun HomeFolderDialog(
+    apps: List<AppInfo>,
+    name: String,
+    onOpen: (AppInfo) -> Unit,
+    onRemove: (AppInfo) -> Unit,
+    onRename: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                name.ifBlank { "תיקייה" },
+                modifier = Modifier.clickable { onRename() }
+            )
+        },
+        text = {
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                apps.chunked(4).forEach { row ->
+                    Row(Modifier.fillMaxWidth()) {
+                        row.forEach { app ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .pointerInput(app.key) {
+                                        detectTapGestures(
+                                            onTap = { onOpen(app) },
+                                            onLongPress = { onRemove(app) }
+                                        )
+                                    }
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Image(
+                                    bitmap = app.icon,
+                                    contentDescription = app.label,
+                                    modifier = Modifier.size(52.dp)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    app.label,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+                Text(
+                    "לחיצה ארוכה על אפליקציה מוציאה אותה מהתיקייה",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("סגירה") } }
+    )
 }

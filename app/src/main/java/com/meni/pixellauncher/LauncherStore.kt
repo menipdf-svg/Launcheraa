@@ -23,9 +23,13 @@ data class HomeItem(
     val x: Int,
     val y: Int,
     val w: Int = 1,
-    val h: Int = 1
+    val h: Int = 1,
+    /** תיקייה במסך הבית: רשימת האפליקציות שבה ושם לבחירה */
+    val folderApps: List<String> = emptyList(),
+    val folderName: String = ""
 ) {
-    val isWidget: Boolean get() = appKey == null
+    val isFolder: Boolean get() = folderApps.isNotEmpty()
+    val isWidget: Boolean get() = appKey == null && !isFolder
 }
 
 // שומר את הסידור של מסך הבית וה-Dock ב-SharedPreferences
@@ -546,6 +550,54 @@ class LauncherStore(context: Context) {
         if (dockChanged || homeChanged) save()
     }
 
+    // ---------- תיקיות במסך הבית ----------
+
+    /** הפריט שנמצא בתא מסוים, אם יש. ווידג'טים תופסים כמה תאים */
+    fun itemAt(page: Int, x: Int, y: Int, ignoreId: Long = -1): HomeItem? =
+        home.firstOrNull {
+            it.page == page && it.id != ignoreId &&
+                x >= it.x && x < it.x + it.w && y >= it.y && y < it.y + it.h
+        }
+
+    /** הופך אייקון בודד לתיקייה עם שתי אפליקציות, או מוסיף לתיקייה קיימת */
+    fun mergeIntoFolder(targetId: Long, appKey: String): Boolean {
+        val index = home.indexOfFirst { it.id == targetId }
+        if (index < 0) return false
+        val target = home[index]
+        if (target.isWidget) return false
+        val existing = if (target.isFolder) target.folderApps else listOfNotNull(target.appKey)
+        if (appKey in existing) return false
+        home[index] = target.copy(
+            appKey = null,
+            folderApps = existing + appKey,
+            folderName = target.folderName
+        )
+        save()
+        return true
+    }
+
+    fun renameHomeFolder(id: Long, name: String) {
+        val index = home.indexOfFirst { it.id == id }
+        if (index < 0) return
+        home[index] = home[index].copy(folderName = name.trim())
+        save()
+    }
+
+    /** מוציא אפליקציה מתיקייה. תיקייה שנשארת עם אפליקציה אחת חוזרת להיות אייקון */
+    fun removeFromFolder(id: Long, appKey: String) {
+        val index = home.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val item = home[index]
+        val left = item.folderApps.filterNot { it == appKey }
+        home[index] = when (left.size) {
+            0 -> item.copy(folderApps = emptyList(), appKey = null)
+            1 -> item.copy(folderApps = emptyList(), appKey = left.first(), folderName = "")
+            else -> item.copy(folderApps = left)
+        }
+        if (left.isEmpty()) home.removeAt(index)
+        save()
+    }
+
     private fun add(item: HomeItem) {
         home.add(item)
         ensurePage(item.page)
@@ -570,6 +622,10 @@ class LauncherStore(context: Context) {
                 put("y", item.y)
                 put("w", item.w)
                 put("h", item.h)
+                if (item.isFolder) {
+                    put("folder", JSONArray(item.folderApps))
+                    put("folderName", item.folderName)
+                }
             })
         }
         prefs.edit()
@@ -603,7 +659,11 @@ class LauncherStore(context: Context) {
                             x = o.getInt("x"),
                             y = o.getInt("y"),
                             w = o.optInt("w", 1),
-                            h = o.optInt("h", 1)
+                            h = o.optInt("h", 1),
+                            folderApps = o.optJSONArray("folder")?.let { array ->
+                                (0 until array.length()).map { array.getString(it) }
+                            } ?: emptyList(),
+                            folderName = o.optString("folderName", "")
                         )
                     )
                 }
