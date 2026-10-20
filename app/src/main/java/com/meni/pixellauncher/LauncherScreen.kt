@@ -35,7 +35,9 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.*
@@ -280,6 +282,13 @@ fun LauncherScreen(
     var renameTarget by remember { mutableStateOf<DrawerGroup?>(null) }
     var deleteTarget by remember { mutableStateOf<DrawerGroup?>(null) }
     var renameApp by remember { mutableStateOf<AppInfo?>(null) }
+    // בחירת אייקון מהגלריה. iconRefresh מאלץ טעינה מחדש אחרי שמירה
+    var iconTarget by remember { mutableStateOf<AppInfo?>(null) }
+    var iconRefresh by remember { mutableIntStateOf(0) }
+    // מחווה על אייקון: מפתח האפליקציה ← מפתח האפליקציה שתיפתח בהחלקה מעלה
+    var swipeTarget by remember { mutableStateOf<AppInfo?>(null) }
+    var swipeMap by remember { mutableStateOf(emptyMap<String, String>()) }
+    LaunchedEffect(refreshKey) { swipeMap = AppSwipes.all(context) }
 
     // טוען מחדש את השיוך של כל האפליקציות אחרי שינוי ידני
     fun reloadCategories() {
@@ -327,7 +336,7 @@ fun LauncherScreen(
     val minCellH = iconSize + 30.dp
 
     val iconPack = store.iconPack
-    LaunchedEffect(refreshKey, iconTheme, iconShape, iconPack) {
+    LaunchedEffect(refreshKey, iconTheme, iconShape, iconPack, iconRefresh) {
         val loaded = withContext(Dispatchers.IO) { AppsRepository.loadApps(context, iconTheme, iconShape, iconPack) }
         apps = loaded
         if (loaded.isNotEmpty()) {
@@ -477,6 +486,24 @@ fun LauncherScreen(
             list += MenuAction("העברה לתיקייה", vector = Icons.Outlined.Edit) { moveTarget = app }
         }
         list += MenuAction("שינוי שם", vector = Icons.Outlined.Create) { renameApp = app }
+        list += MenuAction("בחירת אייקון", vector = Icons.Outlined.Star) { iconTarget = app }
+        val swipeNow = swipeMap[app.key]?.let { target -> apps.firstOrNull { it.key == target } }
+        list += MenuAction(
+            if (swipeNow != null) "מחווה: ${swipeNow.label}" else "מחווה על האייקון",
+            vector = Icons.Outlined.Add
+        ) { swipeTarget = app }
+        if (swipeNow != null) {
+            list += MenuAction("ביטול המחווה", vector = Icons.Outlined.Close) {
+                AppSwipes.set(context, app.key, null)
+                swipeMap = AppSwipes.all(context)
+            }
+        }
+        if (CustomIcons.has(context, app.key)) {
+            list += MenuAction("החזרת האייקון המקורי", vector = Icons.Outlined.Refresh) {
+                CustomIcons.clear(context, app.key)
+                iconRefresh++
+            }
+        }
         list += MenuAction("הסתרה", vector = Icons.Outlined.Lock) {
             store.hideApp(app.key)
             store.trimEmptyPages(pagerState.currentPage)
@@ -496,6 +523,14 @@ fun LauncherScreen(
     }
 
     // ---------- גרירה ושחרור ----------
+
+    /** החלקה מעלה על אייקון: פותחת את האפליקציה שהוגדרה, אם הוגדרה */
+    fun swipeActionFor(app: AppInfo): (() -> Unit)? {
+        if (safeActive || store.lockLayout) return null
+        val target = swipeMap[app.key] ?: return null
+        val other = apps.firstOrNull { it.key == target } ?: return null
+        return { launchApp(other) }
+    }
 
     fun startDrag(
         app: AppInfo,
@@ -883,7 +918,8 @@ fun LauncherScreen(
                                                         onClick = { launchApp(app) },
                                                         onLongPress = startDrag(app, DragSource.HOME, item.id, -1, menuKey),
                                                         onMove = moveDrag,
-                                                        onRelease = endDrag
+                                                        onRelease = endDrag,
+                                                        onSwipeUp = swipeActionFor(app)
                                                     )
                                                 }
                                             }
@@ -989,7 +1025,8 @@ fun LauncherScreen(
                                                 onClick = { launchApp(app) },
                                                 onLongPress = startDrag(app, DragSource.DRAWER, -1, -1, menuKey),
                                                 onMove = moveDrag,
-                                                onRelease = endDrag
+                                                onRelease = endDrag,
+                                                onSwipeUp = swipeActionFor(app)
                                             )
                                         }
                                     }
@@ -1013,7 +1050,8 @@ fun LauncherScreen(
                                             onClick = { launchApp(app) },
                                             onLongPress = startDrag(app, DragSource.DOCK, -1, index, menuKey),
                                             onMove = moveDrag,
-                                            onRelease = endDrag
+                                            onRelease = endDrag,
+                                            onSwipeUp = swipeActionFor(app)
                                         )
                                     }
                                 }
@@ -1078,7 +1116,8 @@ fun LauncherScreen(
                             },
                             onLongPress = startDrag(app, DragSource.DRAWER, -1, -1, menuKey),
                             onMove = moveDrag,
-                            onRelease = endDrag
+                            onRelease = endDrag,
+                            onSwipeUp = swipeActionFor(app)
                         )
                     }
                     AppDrawer(
@@ -1343,6 +1382,36 @@ fun LauncherScreen(
                         moveTarget = null
                     },
                     onDismiss = { moveTarget = null }
+                )
+            }
+
+            // ================= בחירת אייקון מהגלריה =================
+            val pickingIconFor = iconTarget
+            if (pickingIconFor != null) {
+                val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.GetContent()
+                ) { uri ->
+                    if (uri != null) {
+                        if (CustomIcons.save(context, pickingIconFor.key, uri)) iconRefresh++
+                        else toast("לא ניתן לטעון את התמונה")
+                    }
+                    iconTarget = null
+                }
+                LaunchedEffect(pickingIconFor.key) { picker.launch("image/*") }
+            }
+
+            // ================= מחווה על אייקון =================
+            val swipingFor = swipeTarget
+            if (swipingFor != null) {
+                AppPickerDialog(
+                    apps = apps.filter { it.key != swipingFor.key },
+                    onPick = { picked ->
+                        AppSwipes.set(context, swipingFor.key, picked.key)
+                        swipeMap = AppSwipes.all(context)
+                        swipeTarget = null
+                        toast("החלקה מעלה על ${swipingFor.label} תפתח את ${picked.label}")
+                    },
+                    onDismiss = { swipeTarget = null }
                 )
             }
 

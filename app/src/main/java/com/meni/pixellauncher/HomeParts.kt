@@ -274,6 +274,23 @@ fun AppDrawer(
             }
         }
     }
+    // סרגל א-ב: אות ← מקום ראשון ברשימה. רק כשהרשימה ממוינת לפי א-ב
+    val letterIndex = remember(entries, folderMode, sections) {
+        if (sections != null && !folderMode) emptyList() else {
+            val seen = LinkedHashMap<String, Int>()
+            entries.forEachIndexed { index, entry ->
+                val label = when (entry) {
+                    is DrawerEntry.App -> entry.app.label
+                    is DrawerEntry.Folder -> entry.category.label
+                    is DrawerEntry.Header -> null
+                }
+                val first = label?.trimStart()?.firstOrNull() ?: return@forEachIndexed
+                val letter = if (first.isLetter()) first.uppercaseChar().toString() else "#"
+                seen.putIfAbsent(letter, index)
+            }
+            seen.toList()
+        }
+    }
     val headerIndex = remember(entries) {
         val map = LinkedHashMap<DrawerGroup, Int>()
         entries.forEachIndexed { index, entry ->
@@ -549,6 +566,15 @@ fun AppDrawer(
             }
         }
 
+        // סרגל האותיות מוצג רק כשיש בו טעם: רשימה ארוכה, בלי חיפוש ובלי תיקייה פתוחה
+        if (query.isBlank() && openCategory == null && letterIndex.size >= 6 && entries.size >= 30) {
+            AlphabetScroller(
+                letters = letterIndex,
+                modifier = Modifier.align(Alignment.CenterEnd),
+                onJump = { index -> scope.launch { gridState.scrollToItem(index) } }
+            )
+        }
+
         val folder = entries.firstOrNull {
             it is DrawerEntry.Folder && it.category.id == shownCategory?.id
         } as? DrawerEntry.Folder
@@ -565,6 +591,93 @@ fun AppDrawer(
             )
         }
       }
+    }
+}
+
+/**
+ * סרגל אותיות בצד המגירה, לקפיצה מהירה. הגרירה ממופה על כל האותיות,
+ * גם כשמוצגת רק חלק מהן, ובועה מציגה את האות הנוכחית.
+ */
+@Composable
+private fun AlphabetScroller(
+    letters: List<Pair<String, Int>>,
+    modifier: Modifier = Modifier,
+    onJump: (Int) -> Unit
+) {
+    var dragging by remember { mutableStateOf(false) }
+    var active by remember { mutableIntStateOf(-1) }
+    val haptics = LocalHapticFeedback.current
+    // לא כל האותיות נכנסות לגובה המסך, ולכן מוצגת דגימה מתוכן
+    val step = maxOf(1, (letters.size + 23) / 24)
+    val shown = letters.filterIndexed { index, _ -> index % step == 0 }
+
+    Box(modifier.fillMaxHeight(0.78f), contentAlignment = Alignment.CenterEnd) {
+        if (dragging && active in letters.indices) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 34.dp).size(46.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        letters[active].first,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(26.dp)
+                .pointerInput(letters) {
+                    fun jump(y: Float) {
+                        if (size.height <= 0) return
+                        val fraction = (y / size.height).coerceIn(0f, 0.999f)
+                        val index = (fraction * letters.size).toInt().coerceIn(0, letters.size - 1)
+                        if (index != active) {
+                            active = index
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onJump(letters[index].second)
+                        }
+                    }
+                    detectVerticalDragGestures(
+                        onDragStart = { offset ->
+                            dragging = true
+                            jump(offset.y)
+                        },
+                        onDragEnd = { dragging = false },
+                        onDragCancel = { dragging = false },
+                        onVerticalDrag = { change, _ ->
+                            change.consume()
+                            jump(change.position.y)
+                        }
+                    )
+                }
+                .pointerInput(letters) {
+                    detectTapGestures { offset ->
+                        if (size.height > 0) {
+                            val fraction = (offset.y / size.height).coerceIn(0f, 0.999f)
+                            val index = (fraction * letters.size).toInt().coerceIn(0, letters.size - 1)
+                            active = index
+                            onJump(letters[index].second)
+                        }
+                    }
+                }
+        ) {
+            shown.forEach { (letter, _) ->
+                Text(
+                    letter,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
 }
 

@@ -57,7 +57,9 @@ object AppsRepository {
                 val version = versions.getOrPut(pkg) {
                     runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L)
                 }
-                val signature = "$key|$version|$style"
+                // אייקון שהמשתמש בחר גובר על הכול, והחותמת שלו נכנסת לחתימת המטמון
+                val customStamp = CustomIcons.stamp(context, key)
+                val signature = "$key|$version|$style|$customStamp"
                 signatures += signature
                 AppInfo(
                     label = custom[key] ?: original,
@@ -66,9 +68,15 @@ object AppsRepository {
                     activityName = activity,
                     isSystem = (ri.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
                     icon = IconCache.get(context, signature) {
+                        val chosen = if (customStamp > 0L) CustomIcons.load(context, key) else null
                         val packIcon = iconPack?.let { IconPacks.iconFor(context, it, pkg, activity) }
-                        if (packIcon != null) IconRenderer.renderPlain(packIcon)
-                        else IconRenderer.render(ri.loadIcon(pm), theme, shape = shape)
+                        when {
+                            chosen != null -> IconRenderer.renderPlain(
+                                android.graphics.drawable.BitmapDrawable(context.resources, chosen)
+                            )
+                            packIcon != null -> IconRenderer.renderPlain(packIcon)
+                            else -> IconRenderer.render(ri.loadIcon(pm), theme, shape = shape)
+                        }
                     }
                 )
             }
@@ -260,6 +268,69 @@ object AlphabeticalOrder {
 }
 
 /** שמות שהמשתמש נתן לאפליקציות, לפי המפתח של האפליקציה */
+/**
+ * אייקונים שהמשתמש בחר מהגלריה. התמונה נשמרת בתיקייה פנימית של האפליקציה,
+ * וההעדפות שומרות רק את שם הקובץ ואת מועד השמירה, כדי שהמטמון יתרענן בהחלפה.
+ */
+object CustomIcons {
+    private const val PREFS = "custom_icons"
+
+    private fun dir(context: Context) = java.io.File(context.filesDir, "icons").apply { mkdirs() }
+
+    private fun fileFor(context: Context, appKey: String) =
+        java.io.File(dir(context), appKey.replace('/', '_').replace(':', '_') + ".png")
+
+    /** חתימת המטמון: משתנה בכל החלפה של אייקון, ולכן מאלצת ציור מחדש */
+    fun stamp(context: Context, appKey: String): Long =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(appKey, 0L)
+
+    fun has(context: Context, appKey: String): Boolean = stamp(context, appKey) > 0L
+
+    fun load(context: Context, appKey: String): android.graphics.Bitmap? {
+        if (!has(context, appKey)) return null
+        val file = fileFor(context, appKey)
+        if (!file.exists()) return null
+        return runCatching { android.graphics.BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
+    }
+
+    /** שומר תמונה שנבחרה. מקטין ל-192 פיקסלים, די והותר לאייקון */
+    fun save(context: Context, appKey: String, uri: android.net.Uri): Boolean = runCatching {
+        val source = context.contentResolver.openInputStream(uri).use {
+            android.graphics.BitmapFactory.decodeStream(it)
+        } ?: return false
+        val size = 192
+        val scaled = android.graphics.Bitmap.createScaledBitmap(source, size, size, true)
+        fileFor(context, appKey).outputStream().use {
+            scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(appKey, System.currentTimeMillis()).apply()
+        true
+    }.getOrDefault(false)
+
+    fun clear(context: Context, appKey: String) {
+        runCatching { fileFor(context, appKey).delete() }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(appKey).apply()
+    }
+}
+
+/** פעולה שנייה לאייקון: החלקה מעלה עליו פותחת אפליקציה אחרת */
+object AppSwipes {
+    private const val PREFS = "icon_swipes"
+
+    fun all(context: Context): Map<String, String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).all
+            .mapNotNull { (key, value) -> (value as? String)?.let { key to it } }
+            .toMap()
+
+    /** null = ביטול המחווה */
+    fun set(context: Context, appKey: String, targetKey: String?) {
+        val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        if (targetKey == null) edit.remove(appKey) else edit.putString(appKey, targetKey)
+        edit.apply()
+    }
+}
+
 object AppLabels {
     private const val PREFS = "custom_labels"
 

@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +38,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import kotlin.math.abs
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -73,13 +73,15 @@ fun Modifier.launcherItemGestures(
     onClick: () -> Unit,
     onLongPress: (Offset) -> Unit,
     onMove: (Offset) -> Unit,
-    onRelease: () -> Unit
+    onRelease: () -> Unit,
+    onSwipeUp: (() -> Unit)? = null
 ): Modifier = composed {
     val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val click by rememberUpdatedState(onClick)
     val longPress by rememberUpdatedState(onLongPress)
     val move by rememberUpdatedState(onMove)
     val release by rememberUpdatedState(onRelease)
+    val swipeUp by rememberUpdatedState(onSwipeUp)
 
     this
         .onGloballyPositioned { coords[0] = it }
@@ -87,20 +89,56 @@ fun Modifier.launcherItemGestures(
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 var outcome = 0 // 0 = לחיצה ארוכה, 1 = לחיצה רגילה, 2 = בוטל (גלילה)
+                var swiped = false
+                // מעקב אחרי התנועה בחלון הזמן של הלחיצה הארוכה, כדי לזהות החלקה מעלה
+                val slop = viewConfiguration.touchSlop
+                var totalX = 0f
+                var totalY = 0f
                 withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-                    val up = waitForUpOrCancellation()
-                    outcome = if (up != null) {
-                        up.consume()
-                        1
-                    } else {
-                        2
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                        if (change == null) {
+                            outcome = 2
+                            break
+                        }
+                        if (!change.pressed) {
+                            change.consume()
+                            outcome = 1
+                            break
+                        }
+                        val d = change.positionChange()
+                        totalX += d.x
+                        totalY += d.y
+                        if (abs(totalX) > slop || abs(totalY) > slop) {
+                            // החלקה מעלה נתפסת רק כשהוגדרה פעולה, אחרת המחווה
+                            // ממשיכה להורה (פתיחת המגירה, גלילה בין דפים)
+                            if (swipeUp != null && totalY < -slop && abs(totalY) > abs(totalX)) {
+                                change.consume()
+                                swiped = true
+                            }
+                            outcome = 2
+                            break
+                        }
                     }
                 }
                 if (outcome == 1) {
                     click()
                     return@awaitEachGesture
                 }
-                if (outcome == 2) return@awaitEachGesture
+                if (outcome == 2) {
+                    if (swiped) {
+                        // ממתינים לסוף המגע כדי שההורה לא יקבל את השארית
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            change.consume()
+                            if (!change.pressed) break
+                        }
+                        swipeUp?.invoke()
+                    }
+                    return@awaitEachGesture
+                }
 
                 val layout = coords[0]
                 val root = if (layout != null && layout.isAttached) layout.localToRoot(down.position) else down.position
@@ -140,7 +178,8 @@ fun AppIcon(
     onLongPress: (Offset) -> Unit,
     onMove: (Offset) -> Unit,
     onRelease: () -> Unit,
-    iconSize: Dp = 54.dp
+    iconSize: Dp = 54.dp,
+    onSwipeUp: (() -> Unit)? = null
 ) {
     Box {
         Column(
@@ -148,7 +187,7 @@ fun AppIcon(
             modifier = Modifier
                 .graphicsLayer { alpha = if (hidden) 0f else 1f }
                 .clip(RoundedCornerShape(18.dp))
-                .launcherItemGestures(app.key, onClick, onLongPress, onMove, onRelease)
+                .launcherItemGestures(app.key, onClick, onLongPress, onMove, onRelease, onSwipeUp)
                 .padding(horizontal = 4.dp, vertical = 6.dp)
         ) {
             val badges = LocalIconBadges.current

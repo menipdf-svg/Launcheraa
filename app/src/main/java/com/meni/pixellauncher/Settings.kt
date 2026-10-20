@@ -1015,7 +1015,7 @@ private fun GestureActionDialog(
 }
 
 @Composable
-private fun AppPickerDialog(apps: List<AppInfo>, onPick: (AppInfo) -> Unit, onDismiss: () -> Unit) {
+fun AppPickerDialog(apps: List<AppInfo>, onPick: (AppInfo) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("איזו אפליקציה לפתוח?") },
