@@ -307,11 +307,8 @@ fun LauncherScreen(
     val dockIcon = if (isLandscape) minOf(iconSize, 44.dp) else iconSize
     val dockHeight = if (isLandscape) 62.dp else 84.dp
 
-    // לרוחב הרשת מוצגת מסובבת: העמודות והשורות מתחלפות, וכך האייקונים
-    // נשארים בגודל סביר במקום להידחס לשורות נמוכות. המיקומים השמורים לא משתנים,
-    // ולכן חזרה לאורך מחזירה בדיוק את אותה פריסה.
-    val showCols = if (isLandscape) store.gridRows else store.gridColumns
-    val showRows = if (isLandscape) store.gridColumns else store.gridRows
+    // גודל תא מינימלי שבו אייקון עם שם עדיין נראה כראוי
+    val minCellH = iconSize + 30.dp
 
     val iconPack = store.iconPack
     LaunchedEffect(refreshKey, iconTheme, iconShape, iconPack) {
@@ -403,13 +400,20 @@ fun LauncherScreen(
         return Rect(p.left + h, p.top + v, p.right - h, p.bottom - v)
     }
 
-    fun cellAt(pos: Offset): Pair<Int, Int>? {
+    fun overGrid(pos: Offset): Boolean {
         val r = gridRect()
-        if (r.width <= 0f || !r.contains(pos)) return null
-        val dx = ((pos.x - r.left) / (r.width / showCols)).toInt().coerceIn(0, showCols - 1)
-        val dy = ((pos.y - r.top) / (r.height / showRows)).toInt().coerceIn(0, showRows - 1)
-        // לרוחב הרשת מוצגת מסובבת, ולכן המיקום מתורגם חזרה לקואורדינטות השמורות
-        return if (isLandscape) dy to dx else dx to dy
+        return r.width > 0f && r.contains(pos)
+    }
+
+    /** התא שמתחת לאצבע. לרוחב הפריסה נבנית מחדש לפי המקום, ולכן אין תא קבוע */
+    fun cellAt(pos: Offset): Pair<Int, Int>? {
+        if (isLandscape || !overGrid(pos)) return null
+        val r = gridRect()
+        val cx = ((pos.x - r.left) / (r.width / store.gridColumns)).toInt()
+            .coerceIn(0, store.gridColumns - 1)
+        val cy = ((pos.y - r.top) / (r.height / store.gridRows)).toInt()
+            .coerceIn(0, store.gridRows - 1)
+        return cx to cy
     }
 
     // ---------- תפריט לחיצה ארוכה ----------
@@ -532,8 +536,22 @@ fun LauncherScreen(
     }
 
     fun dropOnGrid(app: AppInfo, pos: Offset) {
-        val (cx, cy) = cellAt(pos) ?: return
         val page = pagerState.currentPage
+        val cell = cellAt(pos)
+        if (cell == null) {
+            // לרוחב: אין תא קבוע, ולכן אפליקציה חדשה נוספת למקום הפנוי הראשון,
+            // וסידור מחדש של מה שכבר על המסך נעשה במצב לאורך
+            when (drag.source) {
+                DragSource.DOCK -> {
+                    store.addAppAnywhere(app.key, page)
+                    store.removeFromDock(drag.dockIndex)
+                }
+                DragSource.DRAWER -> store.addAppAnywhere(app.key, page)
+                DragSource.HOME -> toast("סידור האייקונים נעשה כשהמסך לאורך")
+            }
+            return
+        }
+        val (cx, cy) = cell
         when (drag.source) {
             DragSource.HOME -> store.moveItem(drag.homeItemId, page, cx, cy)
             DragSource.DOCK -> {
@@ -556,7 +574,7 @@ fun LauncherScreen(
                         else store.removeFromDock(drag.dockIndex)
                     }
                     targets.dock.contains(pos) -> dropOnDock(app, pos)
-                    cellAt(pos) != null -> dropOnGrid(app, pos)
+                    overGrid(pos) -> dropOnGrid(app, pos)
                 }
                 store.trimEmptyPages(pagerState.currentPage)
             }
@@ -722,13 +740,12 @@ fun LauncherScreen(
                                                 null
                                             },
                                             onLongPress = { off ->
-                                            val dx = (off.x / (size.width.toFloat() / showCols)).toInt()
-                                                .coerceIn(0, showCols - 1)
-                                            val dy = (off.y / (size.height.toFloat() / showRows)).toInt()
-                                                .coerceIn(0, showRows - 1)
-                                            val cx = if (isLandscape) dy else dx
-                                            val cy = if (isLandscape) dx else dy
-                                            if (store.isAreaFree(page, cx, cy, 1, 1)) {
+                                            val cx = (off.x / (size.width.toFloat() / store.gridColumns)).toInt()
+                                                .coerceIn(0, store.gridColumns - 1)
+                                            val cy = (off.y / (size.height.toFloat() / store.gridRows)).toInt()
+                                                .coerceIn(0, store.gridRows - 1)
+                                            // לרוחב אין תא קבוע, ולכן התפריט נפתח בכל מקום ריק
+                                            if (isLandscape || store.isAreaFree(page, cx, cy, 1, 1)) {
                                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                                 // בנעילה ללא אפשרות ביטול אין תפריט, רק הודעה עד מתי
                                                 if (store.lockStrict && store.lockUntil > System.currentTimeMillis()) {
@@ -740,10 +757,23 @@ fun LauncherScreen(
                                         })
                                     }
                             ) {
-                                val cellW = maxWidth / showCols
-                                val cellH = maxHeight / showRows
-                                // בסיבוב המסך התא נמוך בהרבה. האייקון מצטמצם לגודל שנכנס בו,
-                                // והשם מוסתר כשאין לו מקום, במקום שהאייקון יימעך
+                                val pageItems = store.home.filter { it.page == page }
+
+                                // לרוחב הרשת נבנית מחדש לפי המקום שיש בפועל: הרבה עמודות
+                                // ומעט שורות, במקום לדחוס את רשת האורך למסך נמוך
+                                val cols: Int
+                                val rows: Int
+                                if (isLandscape) {
+                                    rows = (maxHeight / minCellH).toInt().coerceIn(1, store.gridRows)
+                                    // די עמודות כדי שכל מה שבדף ייכנס, ולפחות כמספר העמודות שנבחר
+                                    val needed = pageItems.sumOf { it.w * it.h }
+                                    cols = maxOf(store.gridColumns, (needed + rows - 1) / rows)
+                                } else {
+                                    cols = store.gridColumns
+                                    rows = store.gridRows
+                                }
+                                val cellW = maxWidth / cols
+                                val cellH = maxHeight / rows
                                 val labelRoom = 22.dp
                                 val cellIcon = minOf(
                                     iconSize,
@@ -752,16 +782,40 @@ fun LauncherScreen(
                                 )
                                 val cellLabels = cellH >= cellIcon + labelRoom
 
-                                // סימון התא שעליו ינחת האייקון
+                                // לרוחב: סידור מחדש של הפריטים לפי הסדר שבו הם מופיעים לאורך,
+                                // לתוך הרשת החדשה. השמירה לא משתנה, ולכן חזרה לאורך מחזירה הכול
+                                val slots: Map<Long, Pair<Int, Int>> = if (!isLandscape) emptyMap() else {
+                                    val taken = Array(rows) { BooleanArray(cols) }
+                                    val placed = HashMap<Long, Pair<Int, Int>>()
+                                    pageItems.sortedWith(compareBy({ it.y }, { it.x })).forEach { entry ->
+                                        val w = entry.w.coerceIn(1, cols)
+                                        val h = entry.h.coerceIn(1, rows)
+                                        search@ for (y in 0..rows - h) {
+                                            for (x in 0..cols - w) {
+                                                var free = true
+                                                for (dy in 0 until h) for (dx in 0 until w) {
+                                                    if (taken[y + dy][x + dx]) free = false
+                                                }
+                                                if (free) {
+                                                    for (dy in 0 until h) for (dx in 0 until w) {
+                                                        taken[y + dy][x + dx] = true
+                                                    }
+                                                    placed[entry.id] = x to y
+                                                    break@search
+                                                }
+                                            }
+                                        }
+                                    }
+                                    placed
+                                }
+
+                                // סימון התא שעליו ינחת האייקון. לרוחב אין תא קבוע
                                 if (drag.active && page == pagerState.currentPage) {
                                     val cell = cellAt(drag.position)
                                     if (cell != null) {
-                                        // cellAt מחזיר קואורדינטות שמורות, וכאן הן מתורגמות לתצוגה
-                                        val hx = if (isLandscape) cell.second else cell.first
-                                        val hy = if (isLandscape) cell.first else cell.second
                                         Box(
                                             Modifier
-                                                .absoluteOffset(cellW * hx, cellH * hy)
+                                                .absoluteOffset(cellW * cell.first, cellH * cell.second)
                                                 .size(cellW, cellH)
                                                 .padding(4.dp)
                                                 .clip(RoundedCornerShape(18.dp))
@@ -770,13 +824,13 @@ fun LauncherScreen(
                                     }
                                 }
 
-                                store.home.filter { it.page == page }.forEach { item ->
+                                pageItems.forEach { item ->
                                     key(item.id) {
-                                        // לרוחב גם המיקום וגם הגודל של הפריט מתחלפים בצירים
-                                        val ix = if (isLandscape) item.y else item.x
-                                        val iy = if (isLandscape) item.x else item.y
-                                        val iw = if (isLandscape) item.h else item.w
-                                        val ih = if (isLandscape) item.w else item.h
+                                        val slot = slots[item.id]
+                                        val ix = slot?.first ?: item.x
+                                        val iy = slot?.second ?: item.y
+                                        val iw = item.w.coerceAtMost(cols)
+                                        val ih = item.h.coerceAtMost(rows)
                                         val itemModifier = Modifier
                                             .absoluteOffset(cellW * ix, cellH * iy)
                                             .size(cellW * iw, cellH * ih)
