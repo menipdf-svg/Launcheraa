@@ -431,12 +431,6 @@ fun SettingsScreen(
                 if (sec == SettingsSection.HOME) SettingsGroup("מסך הבית") {
                     GridSetting(store)
                     SettingSwitch(
-                        title = "שמות מתחת לאייקונים",
-                        subtitle = "כיבוי משאיר רק את האייקונים במסך הבית. במגירה השמות נשארים",
-                        checked = store.homeLabels,
-                        onCheckedChange = { store.updateHomeLabels(it) }
-                    )
-                    SettingSwitch(
                         title = "נעילת הפריסה",
                         subtitle = "האייקונים במסך הבית וב-Dock לא יזוזו בטעות. " +
                             "לחיצה ארוכה עדיין פותחת את התפריט, והוספה מהמגירה עדיין אפשרית",
@@ -729,6 +723,13 @@ fun SettingsScreen(
 
                 // ---------- כללי ----------
                 if (sec == SettingsSection.GENERAL) SettingsGroup("כללי") {
+                    SettingChoice(
+                        title = "תוויות שמות",
+                        options = LabelMode.entries,
+                        selected = store.labelMode,
+                        label = { it.label },
+                        onSelect = { store.updateLabelMode(it) }
+                    )
                     SettingAction(
                         title = "אפליקציית הבית",
                         subtitle = "הגדרת PixelLauncher כברירת מחדל",

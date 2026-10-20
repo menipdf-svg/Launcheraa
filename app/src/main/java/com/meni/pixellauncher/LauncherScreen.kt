@@ -466,34 +466,43 @@ fun LauncherScreen(
         shortcuts.forEach { s ->
             list += MenuAction(s.label, s.icon) { AppsRepository.startShortcut(context, s) }
         }
-        if (shortcuts.isNotEmpty()) {
-            list += MenuAction.Divider
-        } else if (!AppsRepository.canShowShortcuts(context)) {
+        // שורת הסמלים שבהמשך מוסיפה קו מפריד משלה, ולכן אין צורך בעוד אחד
+        if (shortcuts.isEmpty() && !AppsRepository.canShowShortcuts(context)) {
             list += MenuAction("להצגת קיצורי דרך יש להגדיר את PixelLauncher כמסך הבית", vector = Icons.Outlined.Settings) {
                 AppsRepository.openHomeSettings(context)
             }
-            list += MenuAction.Divider
         }
 
+        // פעולות הלאנצ'ר: סמלים בלבד, בשורה אחת
         when (source) {
-            DragSource.DRAWER -> list += MenuAction("הוספה למסך הבית", vector = Icons.Outlined.Add) {
+            DragSource.DRAWER -> list += MenuAction(
+                "הוספה למסך הבית", vector = Icons.Outlined.Add, iconOnly = true
+            ) {
                 val page = store.addAppAnywhere(app.key, pagerState.currentPage)
                 drawerOpen = false
                 scope.launch { pagerState.animateScrollToPage(page) }
             }
-            DragSource.HOME -> list += MenuAction("הסרה מהמסך", vector = Icons.Outlined.Close) {
+            DragSource.HOME -> list += MenuAction(
+                "הסרה מהמסך", vector = Icons.Outlined.Close, iconOnly = true
+            ) {
                 store.removeItem(homeItemId)
                 store.trimEmptyPages(pagerState.currentPage)
             }
-            DragSource.DOCK -> list += MenuAction("הסרה מה-Dock", vector = Icons.Outlined.Close) {
+            DragSource.DOCK -> list += MenuAction(
+                "הסרה מה-Dock", vector = Icons.Outlined.Close, iconOnly = true
+            ) {
                 store.removeFromDock(dockIndex)
             }
         }
         // כל אפשרויות העריכה מרוכזות בחלון נפרד, כדי שהתפריט יישאר קצר
-        list += MenuAction("עריכה", vector = Icons.Outlined.Create) { editTarget = app }
-        list += MenuAction("פרטי האפליקציה", vector = Icons.Outlined.Info) { AppsRepository.openAppInfo(context, app.packageName) }
+        list += MenuAction("עריכה", vector = Icons.Outlined.Create, iconOnly = true) { editTarget = app }
+        list += MenuAction("פרטי האפליקציה", vector = Icons.Outlined.Info, iconOnly = true) {
+            AppsRepository.openAppInfo(context, app.packageName)
+        }
         if (!app.isSystem) {
-            list += MenuAction("הסרת התקנה", vector = Icons.Outlined.Delete) { AppsRepository.uninstall(context, app.packageName) }
+            list += MenuAction("הסרת התקנה", vector = Icons.Outlined.Delete, iconOnly = true) {
+                AppsRepository.uninstall(context, app.packageName)
+            }
         }
         return list
     }
@@ -1124,7 +1133,7 @@ fun LauncherScreen(
                         AppIcon(
                             app = app,
                             iconSize = iconSize,
-                            showLabel = true,
+                            showLabel = store.drawerLabels,
                             labelColor = MaterialTheme.colorScheme.onSurface,
                             labelShadow = false,
                             hidden = false,

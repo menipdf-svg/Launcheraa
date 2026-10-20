@@ -15,6 +15,13 @@ const val MAX_GRID_COLUMNS = 6
 const val MAX_GRID_ROWS = 7
 
 // פריט במסך הבית: אפליקציה (appKey) או ווידג'ט (widgetId)
+/** היכן מוצגים שמות האפליקציות */
+enum class LabelMode(val label: String) {
+    ALL("בכל מקום"),
+    DRAWER("רק במגירה"),
+    NONE("ללא")
+}
+
 data class HomeItem(
     val id: Long,
     val appKey: String? = null,
@@ -308,14 +315,21 @@ class LauncherStore(context: Context) {
         prefs.edit().putBoolean("shizukuBlock", enabled).apply()
     }
 
-    /** שמות האפליקציות מתחת לאייקונים במסך הבית */
-    var homeLabels by mutableStateOf(prefs.getBoolean("homeLabels", true))
+    /** היכן מוצגים שמות האפליקציות מתחת לאייקונים */
+    var labelMode by mutableStateOf(
+        runCatching { LabelMode.valueOf(prefs.getString("labelMode", null) ?: "") }.getOrNull()
+        // תאימות לאחור: מי שכיבה את השמות במסך הבית ממשיך לראות אותם רק במגירה
+            ?: if (prefs.getBoolean("homeLabels", true)) LabelMode.ALL else LabelMode.DRAWER
+    )
         private set
 
-    fun updateHomeLabels(enabled: Boolean) {
-        homeLabels = enabled
-        prefs.edit().putBoolean("homeLabels", enabled).apply()
+    fun updateLabelMode(mode: LabelMode) {
+        labelMode = mode
+        prefs.edit().putString("labelMode", mode.name).apply()
     }
+
+    val homeLabels: Boolean get() = labelMode == LabelMode.ALL
+    val drawerLabels: Boolean get() = labelMode != LabelMode.NONE
 
     /** נעילת הפריסה: אי אפשר להזיז או להסיר אייקונים בגרירה */
     var lockLayout by mutableStateOf(prefs.getBoolean("lockLayout", false))

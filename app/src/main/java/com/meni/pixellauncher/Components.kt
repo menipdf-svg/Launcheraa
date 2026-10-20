@@ -71,6 +71,8 @@ class MenuAction(
     val icon: ImageBitmap? = null,
     val vector: ImageVector? = null,
     val isDivider: Boolean = false,
+    /** פעולה שמוצגת כסמל בלבד, בשורה אחת בתחתית התפריט */
+    val iconOnly: Boolean = false,
     val onClick: () -> Unit = {}
 ) {
     companion object {
@@ -254,7 +256,11 @@ fun AppIcon(
                     shadowElevation = 8.dp,
                     tonalElevation = 0.dp
                 ) {
-                    actions.forEach { action ->
+                    // פעולות הלאנצ'ר מוצגות כסמלים בשורה אחת, והטקסט נשמר
+                    // לקיצורי הדרך של האפליקציה עצמה
+                    val rows = actions.filterNot { it.iconOnly }
+                    val compact = actions.filter { it.iconOnly }
+                    rows.forEach { action ->
                         if (action.isDivider) {
                             HorizontalDivider(
                                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -288,6 +294,39 @@ fun AppIcon(
                                 },
                                 contentPadding = PaddingValues(horizontal = 18.dp)
                             )
+                        }
+                    }
+                    if (compact.isNotEmpty()) {
+                        if (rows.isNotEmpty()) {
+                            HorizontalDivider(
+                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            compact.forEach { action ->
+                                Box(
+                                    Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            onDismissMenu()
+                                            action.onClick()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    action.vector?.let {
+                                        Icon(
+                                            it,
+                                            contentDescription = action.label,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
