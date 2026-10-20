@@ -51,6 +51,7 @@ enum class GestureAction(val label: String) {
     HIDDEN("אפליקציות מוסתרות"),
     SETTINGS("הגדרות הלאנצ'ר"),
     WIDGETS("ווידג'טים"),
+    LOCK_SCREEN("נעילת המסך"),
     APP("פתיחת אפליקציה…")
 }
 

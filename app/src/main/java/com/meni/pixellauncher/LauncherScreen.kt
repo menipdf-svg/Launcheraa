@@ -291,6 +291,22 @@ fun LauncherScreen(
     val targets = remember { DropTargets() }
     val pagerState = rememberPagerState { store.pageCount }
 
+    // טפט נגלל: הטפט זז מעט עם המעבר בין הדפים, כמו בלאנצ'ר של פיקסל
+    val rootView = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(store.wallpaperParallax, store.pageCount) {
+        if (!store.wallpaperParallax) return@LaunchedEffect
+        val wallpaper = android.app.WallpaperManager.getInstance(context)
+        val pages = store.pageCount
+        snapshotFlow { pagerState.currentPage + pagerState.currentPageOffsetFraction }
+            .collect { position ->
+                val token = rootView.windowToken ?: return@collect
+                val step = if (pages > 1) 1f / (pages - 1) else 0f
+                val offset = if (pages > 1) (position / (pages - 1)).coerceIn(0f, 1f) else 0.5f
+                runCatching { wallpaper.setWallpaperOffsets(token, offset, 0f) }
+                runCatching { wallpaper.setWallpaperOffsetSteps(step, 0f) }
+            }
+    }
+
     val colors = MaterialTheme.colorScheme
     val iconTheme = if (store.themedIcons) {
         IconTheme(colors.primaryContainer.toArgb(), colors.onPrimaryContainer.toArgb())
@@ -376,6 +392,9 @@ fun LauncherScreen(
             GestureAction.HIDDEN -> requestHidden()
             GestureAction.SETTINGS -> requestSettings()
             GestureAction.WIDGETS -> if (!safeActive) widgetPickerOpen = true
+            GestureAction.LOCK_SCREEN -> if (!ShadeGuardService.lockScreen()) {
+                toast("נעילת המסך דורשת אישור נגישות, בהגדרות ← פרטיות ונעילה")
+            }
             GestureAction.APP -> {
                 val key = store.gestureApps[gesture]
                 (if (safeActive) visibleApps else apps)
@@ -500,7 +519,9 @@ fun LauncherScreen(
         if (drag.app != null) {
             drag.position += delta
             drag.travelled += delta.getDistance()
-            if (!drag.active && drag.travelled > with(density) { 12.dp.toPx() }) {
+            // בפריסה נעולה אייקון שכבר על המסך או ב-Dock אינו זז, רק התפריט נפתח
+            val pinned = store.lockLayout && drag.source != DragSource.DRAWER
+            if (!pinned && !drag.active && drag.travelled > with(density) { 12.dp.toPx() }) {
                 // האצבע זזה: סוגרים את התפריט ומתחילים לגרור
                 drag.active = true
                 openMenu = null
@@ -851,7 +872,7 @@ fun LauncherScreen(
                                                     AppIcon(
                                                         app = app,
                                                         iconSize = cellIcon,
-                                                        showLabel = cellLabels,
+                                                        showLabel = cellLabels && store.homeLabels,
                                                         labelColor = Color.White,
                                                         labelShadow = true,
                                                         hidden = drag.active && drag.source == DragSource.HOME &&

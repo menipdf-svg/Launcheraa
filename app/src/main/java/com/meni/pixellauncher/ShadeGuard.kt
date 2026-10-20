@@ -24,10 +24,12 @@ class ShadeGuardService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         connected = true
+        instance = this
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
         connected = false
+        instance = null
         return super.onUnbind(intent)
     }
 
@@ -77,6 +79,7 @@ class ShadeGuardService : AccessibilityService() {
 
     override fun onDestroy() {
         connected = false
+        instance = null
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
@@ -86,6 +89,21 @@ class ShadeGuardService : AccessibilityService() {
         @Volatile
         var connected = false
             private set
+
+        @Volatile
+        private var instance: ShadeGuardService? = null
+
+        /**
+         * מכבה את המסך. זמין רק דרך שירות נגישות, ולכן נדרש אותו אישור
+         * שמשמש את חסימת מגירת ההתראות. מחזיר false אם השירות אינו פעיל.
+         */
+        fun lockScreen(): Boolean {
+            val service = instance ?: return false
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
+            return runCatching {
+                service.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+            }.getOrDefault(false)
+        }
 
         /** האם שירות הנגישות מופעל בהגדרות המערכת */
         fun enabled(context: Context): Boolean {

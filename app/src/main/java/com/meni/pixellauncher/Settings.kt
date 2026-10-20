@@ -431,6 +431,25 @@ fun SettingsScreen(
                 if (sec == SettingsSection.HOME) SettingsGroup("מסך הבית") {
                     GridSetting(store)
                     SettingSwitch(
+                        title = "שמות מתחת לאייקונים",
+                        subtitle = "כיבוי משאיר רק את האייקונים במסך הבית. במגירה השמות נשארים",
+                        checked = store.homeLabels,
+                        onCheckedChange = { store.updateHomeLabels(it) }
+                    )
+                    SettingSwitch(
+                        title = "נעילת הפריסה",
+                        subtitle = "האייקונים במסך הבית וב-Dock לא יזוזו בטעות. " +
+                            "לחיצה ארוכה עדיין פותחת את התפריט, והוספה מהמגירה עדיין אפשרית",
+                        checked = store.lockLayout,
+                        onCheckedChange = { store.updateLockLayout(it) }
+                    )
+                    SettingSwitch(
+                        title = "טפט נגלל",
+                        subtitle = "הטפט זז מעט במעבר בין דפי מסך הבית. תלוי בתמיכת הטפט",
+                        checked = store.wallpaperParallax,
+                        onCheckedChange = { store.updateWallpaperParallax(it) }
+                    )
+                    SettingSwitch(
                         title = "סיבוב מסך הבית",
                         subtitle = "כבוי: מסך הבית נשאר לאורך גם כשהמכשיר מסובב. " +
                             "דלוק: הפריסה מסתובבת, והאייקונים מתכווצים כדי להיכנס לשורות",

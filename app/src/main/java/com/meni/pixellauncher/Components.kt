@@ -16,6 +16,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -157,7 +159,7 @@ fun AppIcon(
                     contentDescription = app.label,
                     modifier = Modifier.size(iconSize)
                 )
-                if (notifications > 0) NotificationDot(Modifier.align(Alignment.TopEnd), iconSize)
+                if (notifications > 0) NotificationDot(Modifier.align(Alignment.TopEnd), iconSize, notifications)
             }
             if (showLabel) {
                 Spacer(Modifier.height(6.dp))
@@ -293,14 +295,30 @@ fun RemoveZone(hovering: Boolean, modifier: Modifier = Modifier) {
 
 /** נקודת התראה בפינת האייקון, כמו בפיקסל */
 @Composable
-fun NotificationDot(modifier: Modifier, iconSize: Dp) {
+fun NotificationDot(modifier: Modifier, iconSize: Dp, count: Int = 0) {
+    // נקודה בלבד כשאין ספירה, ועיגול עם המספר כשיש יותר מהתראה אחת
+    val showNumber = count > 1
+    val size = if (showNumber) iconSize * 0.42f else iconSize * 0.24f
     Box(
         modifier
-            .size(iconSize * 0.24f)
+            .defaultMinSize(minWidth = size, minHeight = size)
+            .height(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surface)
             .padding(2.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary)
-    )
+            .background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center
+    ) {
+        if (showNumber) {
+            Text(
+                text = if (count > 99) "99+" else "$count",
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontSize = with(LocalDensity.current) { (size * 0.52f).toSp() },
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
+    }
 }

@@ -304,6 +304,33 @@ class LauncherStore(context: Context) {
         prefs.edit().putBoolean("shizukuBlock", enabled).apply()
     }
 
+    /** שמות האפליקציות מתחת לאייקונים במסך הבית */
+    var homeLabels by mutableStateOf(prefs.getBoolean("homeLabels", true))
+        private set
+
+    fun updateHomeLabels(enabled: Boolean) {
+        homeLabels = enabled
+        prefs.edit().putBoolean("homeLabels", enabled).apply()
+    }
+
+    /** נעילת הפריסה: אי אפשר להזיז או להסיר אייקונים בגרירה */
+    var lockLayout by mutableStateOf(prefs.getBoolean("lockLayout", false))
+        private set
+
+    fun updateLockLayout(enabled: Boolean) {
+        lockLayout = enabled
+        prefs.edit().putBoolean("lockLayout", enabled).apply()
+    }
+
+    /** הטפט זז מעט במעבר בין דפי מסך הבית */
+    var wallpaperParallax by mutableStateOf(prefs.getBoolean("wallpaperParallax", true))
+        private set
+
+    fun updateWallpaperParallax(enabled: Boolean) {
+        wallpaperParallax = enabled
+        prefs.edit().putBoolean("wallpaperParallax", enabled).apply()
+    }
+
     /** האם מסך הבית מסתובב עם המכשיר. כבוי כברירת מחדל, כמו ברוב הלאנצ'רים */
     var rotateHome by mutableStateOf(prefs.getBoolean("rotateHome", false))
         private set
