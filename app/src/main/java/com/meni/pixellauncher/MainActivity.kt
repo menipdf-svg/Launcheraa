@@ -64,6 +64,8 @@ interface LauncherHost {
     fun setBackgroundBlur(radiusPx: Int)
     /** אייקונים כהים בשורת הסטטוס כשמוצג מעליה משטח בהיר (מגירה, הגדרות) */
     fun setLightSystemBars(light: Boolean)
+    /** האם מסך הבית מסתובב עם המכשיר, או נשאר לאורך */
+    fun setRotationAllowed(allowed: Boolean)
 }
 
 // FragmentActivity נדרש בשביל חלון טביעת האצבע של המערכת
@@ -120,6 +122,14 @@ class MainActivity : FragmentActivity(), LauncherHost {
         val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
         controller.isAppearanceLightStatusBars = light
         controller.isAppearanceLightNavigationBars = light
+    }
+
+    override fun setRotationAllowed(allowed: Boolean) {
+        requestedOrientation = if (allowed) {
+            android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
     }
 
     override fun setBackgroundBlur(radiusPx: Int) {

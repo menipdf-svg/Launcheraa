@@ -154,6 +154,8 @@ fun LauncherScreen(
     // ---------- נעילה מלאה (מצב קיוסק) ----------
     var isOwner by remember { mutableStateOf(host.isDeviceOwner()) }
     LaunchedEffect(refreshKey) { isOwner = host.isDeviceOwner() }
+    LaunchedEffect(store.rotateHome) { host.setRotationAllowed(store.rotateHome) }
+
     // מצב בטוח + מנהל מכשיר = נעילה ברמת המערכת לאפליקציות המותרות בלבד
     LaunchedEffect(safeActive, allowedKeys, isOwner) {
         if (isOwner) host.setKiosk(safeActive, allowedKeys.map { it.substringBefore('/') }.distinct())
@@ -298,6 +300,12 @@ fun LauncherScreen(
 
     val iconShape = store.iconShape
     val iconSize = 54.dp * store.iconScale
+
+    // בסיבוב המסך הגובה מצטמצם, ולכן ה-Dock מתכווץ יחד עם שאר המסך
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val dockIcon = if (isLandscape) minOf(iconSize, 44.dp) else iconSize
+    val dockHeight = if (isLandscape) 62.dp else 84.dp
 
     val iconPack = store.iconPack
     LaunchedEffect(refreshKey, iconTheme, iconShape, iconPack) {
@@ -725,6 +733,15 @@ fun LauncherScreen(
                             ) {
                                 val cellW = maxWidth / store.gridColumns
                                 val cellH = maxHeight / store.gridRows
+                                // בסיבוב המסך התא נמוך בהרבה. האייקון מצטמצם לגודל שנכנס בו,
+                                // והשם מוסתר כשאין לו מקום, במקום שהאייקון יימעך
+                                val labelRoom = 22.dp
+                                val cellIcon = minOf(
+                                    iconSize,
+                                    (cellH - labelRoom).coerceAtLeast(22.dp),
+                                    (cellW - 8.dp).coerceAtLeast(22.dp)
+                                )
+                                val cellLabels = cellH >= cellIcon + labelRoom
 
                                 // סימון התא שעליו ינחת האייקון
                                 if (drag.active && page == pagerState.currentPage) {
@@ -762,8 +779,8 @@ fun LauncherScreen(
                                                 Box(itemModifier, contentAlignment = Alignment.Center) {
                                                     AppIcon(
                                                         app = app,
-                                                        iconSize = iconSize,
-                                                        showLabel = true,
+                                                        iconSize = cellIcon,
+                                                        showLabel = cellLabels,
                                                         labelColor = Color.White,
                                                         labelShadow = true,
                                                         hidden = drag.active && drag.source == DragSource.HOME &&
@@ -851,7 +868,7 @@ fun LauncherScreen(
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .height(84.dp)
+                                .height(dockHeight)
                                 .padding(horizontal = GRID_PAD_H)
                                 .onGloballyPositioned { targets.dock = it.boundsInRoot() },
                             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -869,7 +886,7 @@ fun LauncherScreen(
                                             val menuKey = "ctxdock:$appKey"
                                             AppIcon(
                                                 app = app,
-                                                iconSize = iconSize,
+                                                iconSize = dockIcon,
                                                 showLabel = false,
                                                 labelColor = Color.White,
                                                 labelShadow = true,
@@ -892,7 +909,7 @@ fun LauncherScreen(
                                         val menuKey = "dock:$appKey"
                                         AppIcon(
                                             app = app,
-                                            iconSize = iconSize,
+                                            iconSize = dockIcon,
                                             showLabel = false,
                                             labelColor = Color.White,
                                             labelShadow = true,

@@ -430,6 +430,13 @@ fun SettingsScreen(
                 // ---------- מסך הבית ----------
                 if (sec == SettingsSection.HOME) SettingsGroup("מסך הבית") {
                     GridSetting(store)
+                    SettingSwitch(
+                        title = "סיבוב מסך הבית",
+                        subtitle = "כבוי: מסך הבית נשאר לאורך גם כשהמכשיר מסובב. " +
+                            "דלוק: הפריסה מסתובבת, והאייקונים מתכווצים כדי להיכנס לשורות",
+                        checked = store.rotateHome,
+                        onCheckedChange = { store.updateRotateHome(it) }
+                    )
                     SettingChoice(
                         title = "מעבר בין מסכים",
                         options = PageTransition.entries,

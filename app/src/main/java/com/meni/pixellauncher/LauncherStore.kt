@@ -304,6 +304,15 @@ class LauncherStore(context: Context) {
         prefs.edit().putBoolean("shizukuBlock", enabled).apply()
     }
 
+    /** האם מסך הבית מסתובב עם המכשיר. כבוי כברירת מחדל, כמו ברוב הלאנצ'רים */
+    var rotateHome by mutableStateOf(prefs.getBoolean("rotateHome", false))
+        private set
+
+    fun updateRotateHome(enabled: Boolean) {
+        rotateHome = enabled
+        prefs.edit().putBoolean("rotateHome", enabled).apply()
+    }
+
     /** חסימת מגירת ההתראות בזמן נעילה, באמצעות שירות נגישות */
     var blockShade by mutableStateOf(prefs.getBoolean("blockShade", false))
         private set
