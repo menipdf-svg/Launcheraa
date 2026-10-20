@@ -573,6 +573,12 @@ fun SettingsScreen(
                     )
                     if (store.drawerCategories) {
                         SettingSwitch(
+                            title = "תיקיות Samsung ו-Google",
+                            subtitle = "במקום הקטגוריות הרגילות",
+                            checked = store.brandFolders,
+                            onCheckedChange = { store.updateBrandFolders(it) }
+                        )
+                        SettingSwitch(
                             title = "תיקיות",
                             subtitle = "כבוי: כותרות במקום תיקיות",
                             checked = store.drawerFolders,

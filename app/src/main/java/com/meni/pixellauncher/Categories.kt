@@ -53,9 +53,26 @@ data class DrawerGroup(
     val order: Int,
     val isCustom: Boolean = false
 ) {
+    /** תיקיית יצרן (Samsung, Google): תמיד מוצגת כתיקייה, גם עם אפליקציה אחת */
+    val isBrand: Boolean get() = id.startsWith(BRAND_PREFIX)
+
     companion object {
         fun of(category: AppCategory) = DrawerGroup(category.name, category.label, 1000 + category.ordinal)
         val OTHER = of(AppCategory.OTHER)
+
+        const val BRAND_PREFIX = "brand:"
+        val SAMSUNG = DrawerGroup("${BRAND_PREFIX}samsung", "Samsung", 900)
+        val GOOGLE = DrawerGroup("${BRAND_PREFIX}google", "Google", 901)
+        val BRANDS = listOf(SAMSUNG, GOOGLE)
+
+        /** היצרן לפי שם החבילה, או null לאפליקציה רגילה */
+        fun brandOf(packageName: String): DrawerGroup? = when {
+            packageName.startsWith("com.samsung.") || packageName.startsWith("com.sec.") ||
+                packageName.startsWith("com.osp.") -> SAMSUNG
+            packageName.startsWith("com.google.") || packageName == "com.android.chrome" ||
+                packageName == "com.android.vending" -> GOOGLE
+            else -> null
+        }
     }
 }
 
@@ -80,11 +97,16 @@ object CategoryRepository {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val overrides = context.getSharedPreferences(OVERRIDES, Context.MODE_PRIVATE)
         val custom = customFolders(context).associateBy { it.id }
+        val brands = context.getSharedPreferences("launcher_layout", Context.MODE_PRIVATE)
+            .getBoolean("brandFolders", false)
         return packages.associateWith { pkg ->
             // בחירה ידנית של המשתמש קודמת ל-Google Play
             val chosen = overrides.getString(pkg, null)
             custom[chosen]
                 ?: parse(chosen)?.let { DrawerGroup.of(it) }
+                ?: DrawerGroup.BRANDS.firstOrNull { it.id == chosen }
+                // אפליקציות של Samsung ו-Google בתיקיות משלהן, כשהאפשרות פעילה
+                ?: (if (brands) DrawerGroup.brandOf(pkg) else null)
                 ?: DrawerGroup.of(resolve(context, pkg, prefs.getString(pkg, null)))
         }
     }

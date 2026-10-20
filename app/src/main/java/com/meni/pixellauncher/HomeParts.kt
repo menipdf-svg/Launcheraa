@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -183,6 +184,11 @@ fun AppDrawer(
     searchExtras: @Composable (String) -> Unit = {},
     suggestionContent: @Composable (AppInfo) -> Unit = {},
     onDeleteFolder: (DrawerGroup) -> Unit,
+    dragActive: Boolean = false,
+    onFolderDrag: (DrawerGroup, List<AppInfo>, Offset) -> Unit = { _, _, _ -> },
+    onFolderToHome: (DrawerGroup, List<AppInfo>) -> Unit = { _, _ -> },
+    onItemMove: (Offset) -> Unit = {},
+    onItemRelease: () -> Unit = {},
     appContent: @Composable (AppInfo) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
@@ -255,7 +261,7 @@ fun AppDrawer(
             filtered.map<AppInfo, DrawerEntry> { DrawerEntry.App(it) }
         } else if (folderMode) {
             // תיקייה שנוצרה על ידך מוצגת תמיד, גם עם אפליקציה אחת
-            val isFolder = { group: DrawerGroup, size: Int -> size >= 2 || group.isCustom }
+            val isFolder = { group: DrawerGroup, size: Int -> size >= 2 || group.isCustom || group.isBrand }
             // תיקיות ואפליקציות בודדות ממוינות יחד לפי א-ב
             val folders = sections.filter { isFolder(it.key, it.value.size) }
                 .map { (category, list) -> category.label to DrawerEntry.Folder(category, list) }
@@ -536,10 +542,15 @@ fun AppDrawer(
                                     iconSize = iconSize,
                                     shape = iconShape.toComposeShape(),
                                     hidden = entry.category.id == shownCategory?.id,
+                                    dragActive = dragActive,
                                     onBounds = { folderBounds[entry.category.id] = it },
                                     onClick = { openCategory = entry.category },
                                     onRename = { onRenameFolder(entry.category) },
-                                    onDelete = { onDeleteFolder(entry.category) }
+                                    onDelete = { onDeleteFolder(entry.category) },
+                                    onAddToHome = { onFolderToHome(entry.category, entry.apps) },
+                                    onDragStart = { root -> onFolderDrag(entry.category, entry.apps, root) },
+                                    onMove = onItemMove,
+                                    onRelease = onItemRelease
                                 )
                             }
                             is DrawerEntry.App -> Box(
@@ -688,27 +699,36 @@ private fun FolderTile(
     iconSize: Dp,
     shape: Shape,
     hidden: Boolean,
+    dragActive: Boolean,
     onBounds: (Rect) -> Unit,
     onClick: () -> Unit,
     onRename: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAddToHome: () -> Unit,
+    onDragStart: (Offset) -> Unit,
+    onMove: (Offset) -> Unit,
+    onRelease: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
+    // ברגע שהאצבע זזה התפריט נסגר, והתיקייה נגררת למסך הבית
+    LaunchedEffect(dragActive) { if (dragActive) menuOpen = false }
   Box {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clip(RoundedCornerShape(18.dp))
-            .pointerInput(folder.category.id) {
-                detectTapGestures(
-                    onTap = { onClick() },
-                    onLongPress = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menuOpen = true
-                    }
-                )
-            }
+            .launcherItemGestures(
+                key = folder.category.id,
+                onClick = onClick,
+                onLongPress = { root ->
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    menuOpen = true
+                    onDragStart(root)
+                },
+                onMove = onMove,
+                onRelease = onRelease
+            )
             .padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         val badges = LocalIconBadges.current
@@ -756,11 +776,13 @@ private fun FolderTile(
         shape = RoundedCornerShape(20.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        Text(
-            if (folder.category.isCustom) "תיקייה שנוצרה על ידך" else "קטגוריה מ-Google Play",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        DropdownMenuItem(
+            text = { Text("הוספה למסך הבית") },
+            leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+            onClick = {
+                menuOpen = false
+                onAddToHome()
+            }
         )
         if (folder.category.isCustom) {
             DropdownMenuItem(

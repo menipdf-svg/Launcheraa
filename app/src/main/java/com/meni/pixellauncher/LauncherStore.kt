@@ -340,6 +340,15 @@ class LauncherStore(context: Context) {
         prefs.edit().putBoolean("lockLayout", enabled).apply()
     }
 
+    /** אפליקציות של Samsung ו-Google בתיקיות משלהן במגירה */
+    var brandFolders by mutableStateOf(prefs.getBoolean("brandFolders", false))
+        private set
+
+    fun updateBrandFolders(enabled: Boolean) {
+        brandFolders = enabled
+        prefs.edit().putBoolean("brandFolders", enabled).commit()
+    }
+
     /** הטפט זז מעט במעבר בין דפי מסך הבית */
     var wallpaperParallax by mutableStateOf(prefs.getBoolean("wallpaperParallax", true))
         private set
@@ -602,6 +611,23 @@ class LauncherStore(context: Context) {
         )
         save()
         return true
+    }
+
+    /** תיקייה שלמה למסך הבית, למשל כשגוררים תיקייה מהמגירה */
+    fun addFolder(apps: List<String>, name: String, page: Int, x: Int, y: Int): Boolean {
+        val unique = apps.distinct()
+        if (unique.isEmpty() || !isAreaFree(page, x, y, 1, 1)) return false
+        add(
+            if (unique.size == 1) HomeItem(id = nextId++, appKey = unique.first(), page = page, x = x, y = y)
+            else HomeItem(id = nextId++, page = page, x = x, y = y, folderApps = unique, folderName = name)
+        )
+        return true
+    }
+
+    fun addFolderAnywhere(apps: List<String>, name: String, startPage: Int): Int {
+        val (page, x, y) = findFreeSpot(startPage, 1, 1)
+        addFolder(apps, name, page, x, y)
+        return page
     }
 
     fun renameHomeFolder(id: Long, name: String) {

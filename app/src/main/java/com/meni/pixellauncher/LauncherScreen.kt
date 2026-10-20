@@ -81,6 +81,9 @@ class DragState {
     var position by mutableStateOf(Offset.Zero) // מיקום האצבע במסך
     var active by mutableStateOf(false)          // האצבע זזה, הגרירה התחילה באמת
     var travelled = 0f
+    // גרירה של תיקייה שלמה מהמגירה: רשימת האפליקציות והשם
+    var folderApps by mutableStateOf<List<String>>(emptyList())
+    var folderName = ""
 
     fun reset() {
         app = null
@@ -88,6 +91,8 @@ class DragState {
         homeItemId = -1L
         dockIndex = -1
         travelled = 0f
+        folderApps = emptyList()
+        folderName = ""
     }
 }
 
@@ -356,7 +361,7 @@ fun LauncherScreen(
         }
     }
 
-    LaunchedEffect(apps, store.drawerCategories, categoryRefresh) {
+    LaunchedEffect(apps, store.drawerCategories, categoryRefresh, store.brandFolders) {
         if (!store.drawerCategories || apps.isEmpty()) {
             categories = null
             categoryProgress = null
@@ -514,6 +519,27 @@ fun LauncherScreen(
         return list
     }
 
+    /** תפריט של תיקייה במסך הבית */
+    fun folderActions(item: HomeItem): List<MenuAction> {
+        if (safeActive) return listOf(MenuAction("מצב בטוח פעיל", vector = Icons.Outlined.Lock))
+        val large = item.w >= 2 && item.h >= 2
+        return listOf(
+            MenuAction("הסרה מהמסך", vector = Icons.Outlined.Close, iconOnly = true) {
+                store.removeItem(item.id)
+                store.trimEmptyPages(pagerState.currentPage)
+            },
+            MenuAction("שינוי שם", vector = Icons.Outlined.Create, iconOnly = true) { folderRename = item },
+            MenuAction(
+                if (large) "הקטנה" else "הגדלה",
+                vector = if (large) ShrinkIcon else ExpandIcon,
+                iconOnly = true
+            ) {
+                val ok = if (large) store.resizeItem(item.id, 1, 1) else store.resizeItem(item.id, 2, 2)
+                if (!ok && !large) toast("אין מקום פנוי להגדלה")
+            }
+        )
+    }
+
     // ---------- גרירה ושחרור ----------
 
     /** החלקה מעלה על אייקון: פותחת את האפליקציה שהוגדרה, אם הוגדרה */
@@ -524,6 +550,24 @@ fun LauncherScreen(
         return { launchApp(other) }
     }
 
+    /** האם הפריט שנגרר במסך הבית הוא תיקייה */
+    fun draggingHomeFolder(): Boolean =
+        drag.source == DragSource.HOME && store.home.firstOrNull { it.id == drag.homeItemId }?.isFolder == true
+
+    /** גרירת תיקייה מהמגירה למסך הבית */
+    fun startFolderDrag(group: DrawerGroup, folderApps: List<AppInfo>, root: Offset) {
+        if (folderApps.isEmpty()) return
+        drag.app = folderApps.first()
+        drag.source = DragSource.DRAWER
+        drag.homeItemId = -1L
+        drag.dockIndex = -1
+        drag.position = root
+        drag.active = false
+        drag.travelled = 0f
+        drag.folderApps = folderApps.map { it.key }
+        drag.folderName = group.label
+    }
+
     fun startDrag(
         app: AppInfo,
         source: DragSource,
@@ -532,6 +576,7 @@ fun LauncherScreen(
         menuKey: String
     ): (Offset) -> Unit = { root ->
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        drag.folderApps = emptyList()
         drag.app = app
         drag.source = source
         drag.homeItemId = homeItemId
@@ -586,6 +631,13 @@ fun LauncherScreen(
     fun dropOnGrid(app: AppInfo, pos: Offset) {
         val page = pagerState.currentPage
         val cell = cellAt(pos)
+        // תיקייה מהמגירה: נוחתת בתא שמתחת לאצבע, או במקום הפנוי הראשון
+        if (drag.folderApps.isNotEmpty()) {
+            val placed = cell != null &&
+                store.addFolder(drag.folderApps, drag.folderName, page, cell.first, cell.second)
+            if (!placed) store.addFolderAnywhere(drag.folderApps, drag.folderName, page)
+            return
+        }
         if (cell == null) {
             // לרוחב: אין תא קבוע, ולכן אפליקציה חדשה נוספת למקום הפנוי הראשון,
             // וסידור מחדש של מה שכבר על המסך נעשה במצב לאורך
@@ -602,7 +654,9 @@ fun LauncherScreen(
         val (cx, cy) = cell
         // נפילה על אייקון קיים יוצרת תיקייה, או מוסיפה לתיקייה שכבר שם
         val under = store.itemAt(page, cx, cy, ignoreId = drag.homeItemId)
-        if (under != null && !under.isWidget && store.mergeIntoFolder(under.id, app.key)) {
+        if (!draggingHomeFolder() && under != null && !under.isWidget &&
+            store.mergeIntoFolder(under.id, app.key)
+        ) {
             when (drag.source) {
                 DragSource.HOME -> store.removeItem(drag.homeItemId)
                 DragSource.DOCK -> store.removeFromDock(drag.dockIndex)
@@ -631,7 +685,9 @@ fun LauncherScreen(
                         if (drag.source == DragSource.HOME) store.removeItem(drag.homeItemId)
                         else store.removeFromDock(drag.dockIndex)
                     }
-                    targets.dock.contains(pos) -> dropOnDock(app, pos)
+                    targets.dock.contains(pos) -> {
+                        if (drag.folderApps.isEmpty() && !draggingHomeFolder()) dropOnDock(app, pos)
+                    }
                     overGrid(pos) -> dropOnGrid(app, pos)
                 }
                 store.trimEmptyPages(pagerState.currentPage)
@@ -926,15 +982,28 @@ fun LauncherScreen(
                                             }
                                         } else if (item.isFolder) {
                                             val inside = item.folderApps.mapNotNull { appsByKey[it] }
+                                            val menuKey = "folder:${item.id}"
                                             Box(itemModifier, contentAlignment = Alignment.Center) {
                                                 HomeFolderTile(
+                                                    itemKey = item.id,
                                                     apps = inside,
                                                     name = item.folderName,
                                                     iconSize = cellIcon,
                                                     shape = iconShape.toComposeShape(),
                                                     showLabel = cellLabels && store.homeLabels,
-                                                    onClick = { openFolder = item.id },
-                                                    onRename = { folderRename = item }
+                                                    large = item.w >= 2 && item.h >= 2,
+                                                    hidden = drag.active && drag.source == DragSource.HOME &&
+                                                        drag.homeItemId == item.id,
+                                                    menuOpen = openMenu == menuKey,
+                                                    menuActions = { folderActions(item) },
+                                                    onDismissMenu = { openMenu = null },
+                                                    onOpen = { openFolder = item.id },
+                                                    onLaunch = { launchApp(it) },
+                                                    onLongPress = inside.firstOrNull()?.let {
+                                                        startDrag(it, DragSource.HOME, item.id, -1, menuKey)
+                                                    } ?: { _: Offset -> },
+                                                    onMove = moveDrag,
+                                                    onRelease = endDrag
                                                 )
                                             }
                                         } else {
@@ -1184,6 +1253,17 @@ fun LauncherScreen(
                             drawerOpen = false
                         },
                         suggestionContent = { app -> drawerIcon(app, "suggest") },
+                        dragActive = drag.active,
+                        onFolderDrag = { group, folderApps, root ->
+                            if (!safeActive && !store.lockLayout) startFolderDrag(group, folderApps, root)
+                        },
+                        onFolderToHome = { group, folderApps ->
+                            val page = store.addFolderAnywhere(folderApps.map { it.key }, group.label, pagerState.currentPage)
+                            drawerOpen = false
+                            scope.launch { pagerState.animateScrollToPage(page) }
+                        },
+                        onItemMove = moveDrag,
+                        onItemRelease = endDrag,
                         appContent = { app -> drawerIcon(app, "drawer") }
                     )
                 }
@@ -1387,19 +1467,39 @@ fun LauncherScreen(
             val dragged = drag.app
             if (dragged != null && drag.active) {
                 val half = with(density) { (iconSize * 0.6f).toPx() }
-                Image(
-                    bitmap = dragged.icon,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .align(AbsoluteAlignment.TopLeft)
-                        .size(iconSize * 1.2f)
-                        .graphicsLayer {
-                            translationX = drag.position.x - half
-                            translationY = drag.position.y - half
-                            scaleX = 1.08f
-                            scaleY = 1.08f
+                val previewModifier = Modifier
+                    .align(AbsoluteAlignment.TopLeft)
+                    .size(iconSize * 1.2f)
+                    .graphicsLayer {
+                        translationX = drag.position.x - half
+                        translationY = drag.position.y - half
+                        scaleX = 1.08f
+                        scaleY = 1.08f
+                    }
+                val folderPreview = drag.folderApps.ifEmpty {
+                    store.home.firstOrNull { it.id == drag.homeItemId && it.isFolder }?.folderApps.orEmpty()
+                }
+                if (folderPreview.isNotEmpty()) {
+                    // תיקייה נגררת: ריבוע עם ארבעה סמלים זעירים
+                    Box(
+                        previewModifier
+                            .clip(iconShape.toComposeShape())
+                            .background(Color.White.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            folderPreview.mapNotNull { appsByKey[it] }.take(4).chunked(2).forEach { row ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    row.forEach { a ->
+                                        Image(a.icon, contentDescription = null, modifier = Modifier.size(iconSize * 0.42f))
+                                    }
+                                }
+                            }
                         }
-                )
+                    }
+                } else {
+                    Image(bitmap = dragged.icon, contentDescription = null, modifier = previewModifier)
+                }
             }
 
             // ================= העברת אפליקציה לתיקייה =================
@@ -1408,7 +1508,9 @@ fun LauncherScreen(
                 MoveToFolderDialog(
                     app = target,
                     groups = remember(target, overrideCount) {
-                        CategoryRepository.customFolders(context) + AppCategory.entries.map { DrawerGroup.of(it) }
+                        CategoryRepository.customFolders(context) +
+                            (if (store.brandFolders) DrawerGroup.BRANDS else emptyList()) +
+                            AppCategory.entries.map { DrawerGroup.of(it) }
                     },
                     current = categories?.get(target.packageName),
                     isCustom = CategoryRepository.hasOverride(context, target.packageName),
