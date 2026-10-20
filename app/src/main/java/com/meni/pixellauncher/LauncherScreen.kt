@@ -307,6 +307,12 @@ fun LauncherScreen(
     val dockIcon = if (isLandscape) minOf(iconSize, 44.dp) else iconSize
     val dockHeight = if (isLandscape) 62.dp else 84.dp
 
+    // לרוחב הרשת מוצגת מסובבת: העמודות והשורות מתחלפות, וכך האייקונים
+    // נשארים בגודל סביר במקום להידחס לשורות נמוכות. המיקומים השמורים לא משתנים,
+    // ולכן חזרה לאורך מחזירה בדיוק את אותה פריסה.
+    val showCols = if (isLandscape) store.gridRows else store.gridColumns
+    val showRows = if (isLandscape) store.gridColumns else store.gridRows
+
     val iconPack = store.iconPack
     LaunchedEffect(refreshKey, iconTheme, iconShape, iconPack) {
         val loaded = withContext(Dispatchers.IO) { AppsRepository.loadApps(context, iconTheme, iconShape, iconPack) }
@@ -400,9 +406,10 @@ fun LauncherScreen(
     fun cellAt(pos: Offset): Pair<Int, Int>? {
         val r = gridRect()
         if (r.width <= 0f || !r.contains(pos)) return null
-        val cx = ((pos.x - r.left) / (r.width / store.gridColumns)).toInt().coerceIn(0, store.gridColumns - 1)
-        val cy = ((pos.y - r.top) / (r.height / store.gridRows)).toInt().coerceIn(0, store.gridRows - 1)
-        return cx to cy
+        val dx = ((pos.x - r.left) / (r.width / showCols)).toInt().coerceIn(0, showCols - 1)
+        val dy = ((pos.y - r.top) / (r.height / showRows)).toInt().coerceIn(0, showRows - 1)
+        // לרוחב הרשת מוצגת מסובבת, ולכן המיקום מתורגם חזרה לקואורדינטות השמורות
+        return if (isLandscape) dy to dx else dx to dy
     }
 
     // ---------- תפריט לחיצה ארוכה ----------
@@ -715,10 +722,12 @@ fun LauncherScreen(
                                                 null
                                             },
                                             onLongPress = { off ->
-                                            val cx = (off.x / (size.width.toFloat() / store.gridColumns)).toInt()
-                                                .coerceIn(0, store.gridColumns - 1)
-                                            val cy = (off.y / (size.height.toFloat() / store.gridRows)).toInt()
-                                                .coerceIn(0, store.gridRows - 1)
+                                            val dx = (off.x / (size.width.toFloat() / showCols)).toInt()
+                                                .coerceIn(0, showCols - 1)
+                                            val dy = (off.y / (size.height.toFloat() / showRows)).toInt()
+                                                .coerceIn(0, showRows - 1)
+                                            val cx = if (isLandscape) dy else dx
+                                            val cy = if (isLandscape) dx else dy
                                             if (store.isAreaFree(page, cx, cy, 1, 1)) {
                                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                                 // בנעילה ללא אפשרות ביטול אין תפריט, רק הודעה עד מתי
@@ -731,8 +740,8 @@ fun LauncherScreen(
                                         })
                                     }
                             ) {
-                                val cellW = maxWidth / store.gridColumns
-                                val cellH = maxHeight / store.gridRows
+                                val cellW = maxWidth / showCols
+                                val cellH = maxHeight / showRows
                                 // בסיבוב המסך התא נמוך בהרבה. האייקון מצטמצם לגודל שנכנס בו,
                                 // והשם מוסתר כשאין לו מקום, במקום שהאייקון יימעך
                                 val labelRoom = 22.dp
@@ -747,9 +756,12 @@ fun LauncherScreen(
                                 if (drag.active && page == pagerState.currentPage) {
                                     val cell = cellAt(drag.position)
                                     if (cell != null) {
+                                        // cellAt מחזיר קואורדינטות שמורות, וכאן הן מתורגמות לתצוגה
+                                        val hx = if (isLandscape) cell.second else cell.first
+                                        val hy = if (isLandscape) cell.first else cell.second
                                         Box(
                                             Modifier
-                                                .absoluteOffset(cellW * cell.first, cellH * cell.second)
+                                                .absoluteOffset(cellW * hx, cellH * hy)
                                                 .size(cellW, cellH)
                                                 .padding(4.dp)
                                                 .clip(RoundedCornerShape(18.dp))
@@ -760,15 +772,20 @@ fun LauncherScreen(
 
                                 store.home.filter { it.page == page }.forEach { item ->
                                     key(item.id) {
+                                        // לרוחב גם המיקום וגם הגודל של הפריט מתחלפים בצירים
+                                        val ix = if (isLandscape) item.y else item.x
+                                        val iy = if (isLandscape) item.x else item.y
+                                        val iw = if (isLandscape) item.h else item.w
+                                        val ih = if (isLandscape) item.w else item.h
                                         val itemModifier = Modifier
-                                            .absoluteOffset(cellW * item.x, cellH * item.y)
-                                            .size(cellW * item.w, cellH * item.h)
+                                            .absoluteOffset(cellW * ix, cellH * iy)
+                                            .size(cellW * iw, cellH * ih)
                                         if (item.isWidget) {
                                             WidgetCell(
                                                 host = host,
                                                 item = item,
-                                                width = cellW * item.w,
-                                                height = cellH * item.h,
+                                                width = cellW * iw,
+                                                height = cellH * ih,
                                                 onLongPress = { widgetToRemove = item },
                                                 modifier = itemModifier
                                             )
