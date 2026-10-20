@@ -1,5 +1,7 @@
 package com.meni.pixellauncher
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -99,11 +101,25 @@ fun Modifier.launcherItemGestures(
     val release by rememberUpdatedState(onRelease)
     val swipeUp by rememberUpdatedState(onSwipeUp)
 
+    // האייקון נלחץ פנימה ברגע הנגיעה, וקופץ חזרה בשחרור
+    var pressed by remember { mutableStateOf(false) }
+    val press by animateFloatAsState(
+        targetValue = if (pressed) 0.88f else 1f,
+        animationSpec = spring(dampingRatio = 0.42f, stiffness = 700f),
+        label = "iconPress"
+    )
+
     this
+        .graphicsLayer {
+            scaleX = press
+            scaleY = press
+        }
         .onGloballyPositioned { coords[0] = it }
         .pointerInput(key) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
+                pressed = true
+                try {
                 var outcome = 0 // 0 = לחיצה ארוכה, 1 = לחיצה רגילה, 2 = בוטל (גלילה)
                 var swiped = false
                 // מעקב אחרי התנועה בחלון הזמן של הלחיצה הארוכה, כדי לזהות החלקה מעלה
@@ -175,6 +191,9 @@ fun Modifier.launcherItemGestures(
                     }
                 } finally {
                     release()
+                }
+                } finally {
+                    pressed = false
                 }
             }
         }

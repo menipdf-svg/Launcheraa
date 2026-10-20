@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -671,9 +672,10 @@ fun LauncherScreen(
 
     // ---------- מגירה ----------
 
+    // קפיץ במקום עקומה אחידה: המגירה נכנסת עם מעט תנופה ונעצרת רך
     val drawerProgress by animateFloatAsState(
         targetValue = if (drawerOpen) 1f else 0f,
-        animationSpec = tween(300, easing = FastOutSlowInEasing),
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = 380f),
         label = "drawer"
     )
     // המגירה נשארת "חיה" בזמן גרירה ממנה, כדי שהאצבע לא תאבד את האייקון
@@ -734,8 +736,8 @@ fun LauncherScreen(
                     .graphicsLayer {
                         val p = drawerProgress
                         alpha = 1f - p
-                        scaleX = 1f - 0.04f * p
-                        scaleY = 1f - 0.04f * p
+                        scaleX = 1f - 0.07f * p
+                        scaleY = 1f - 0.07f * p
                     }
                     .systemBarsPadding()
             ) {
@@ -1130,7 +1132,11 @@ fun LauncherScreen(
                         .fillMaxSize()
                         .graphicsLayer {
                             alpha = drawerProgress
-                            translationY = (1f - drawerProgress) * size.height * 0.2f
+                            translationY = (1f - drawerProgress) * size.height * 0.18f
+                            // התוכן גדל מעט בדרך פנימה, לתחושת עומק
+                            val s = 0.94f + 0.06f * drawerProgress
+                            scaleX = s
+                            scaleY = s
                         }
                 ) {
                     // אייקון במגירה. prefix מפריד בין ההצעות לרשת, כדי שלא ייפתחו שני תפריטים
