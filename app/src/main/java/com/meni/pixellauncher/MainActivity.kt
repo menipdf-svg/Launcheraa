@@ -3,6 +3,7 @@ package com.meni.pixellauncher
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
@@ -189,6 +190,11 @@ class MainActivity : FragmentActivity(), LauncherHost {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // הכיוון נקבע עוד לפני הציור הראשון, כדי שלא יהיה הבזק של פריסה מסובבת
+        setRotationAllowed(
+            getSharedPreferences("launcher_layout", Context.MODE_PRIVATE)
+                .getBoolean("rotateHome", false)
+        )
         widgetManager = AppWidgetManager.getInstance(this)
         widgetHost = LauncherWidgetHost(applicationContext, WIDGET_HOST_ID)
         runCatching {
