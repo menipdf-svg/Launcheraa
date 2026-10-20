@@ -522,6 +522,20 @@ class LauncherStore(context: Context) {
         return true
     }
 
+    /** שינוי גודל של ווידג'ט. נכשל אם הגודל חורג מהרשת או מתנגש בפריט אחר */
+    fun resizeItem(id: Long, w: Int, h: Int): Boolean {
+        val index = home.indexOfFirst { it.id == id }
+        if (index < 0) return false
+        val item = home[index]
+        val newW = w.coerceIn(1, gridColumns)
+        val newH = h.coerceIn(1, gridRows)
+        if (newW == item.w && newH == item.h) return false
+        if (!isAreaFree(item.page, item.x, item.y, newW, newH, ignoreId = id)) return false
+        home[index] = item.copy(w = newW, h = newH)
+        save()
+        return true
+    }
+
     fun removeItem(id: Long) {
         if (home.removeAll { it.id == id }) save()
     }

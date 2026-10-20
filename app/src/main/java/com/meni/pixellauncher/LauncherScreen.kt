@@ -289,6 +289,8 @@ fun LauncherScreen(
     var swipeTarget by remember { mutableStateOf<AppInfo?>(null) }
     // תיקייה פתוחה במסך הבית, ותיקייה שמשנים את שמה
     var openFolder by remember { mutableStateOf<Long?>(null) }
+    // ווידג'ט במצב שינוי גודל: גרירת הידיות משנה כמה תאים הוא תופס
+    var resizingWidget by remember { mutableStateOf<Long?>(null) }
     var folderRename by remember { mutableStateOf<HomeItem?>(null) }
     var swipeMap by remember { mutableStateOf(emptyMap<String, String>()) }
     LaunchedEffect(refreshKey) { swipeMap = AppSwipes.all(context) }
@@ -904,14 +906,36 @@ fun LauncherScreen(
                                             .absoluteOffset(cellW * ix, cellH * iy)
                                             .size(cellW * iw, cellH * ih)
                                         if (item.isWidget) {
-                                            WidgetCell(
-                                                host = host,
-                                                item = item,
-                                                width = cellW * iw,
-                                                height = cellH * ih,
-                                                onLongPress = { widgetToRemove = item },
-                                                modifier = itemModifier
-                                            )
+                                            Box(itemModifier) {
+                                                WidgetCell(
+                                                    host = host,
+                                                    item = item,
+                                                    width = cellW * iw,
+                                                    height = cellH * ih,
+                                                    onLongPress = {
+                                                        if (!store.lockLayout && !isLandscape) {
+                                                            resizingWidget = item.id
+                                                        } else {
+                                                            widgetToRemove = item
+                                                        }
+                                                    },
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                                if (resizingWidget == item.id) {
+                                                    WidgetResizeFrame(
+                                                        cellWidthPx = with(density) { cellW.toPx() },
+                                                        cellHeightPx = with(density) { cellH.toPx() },
+                                                        onResize = { dw, dh ->
+                                                            store.resizeItem(item.id, item.w + dw, item.h + dh)
+                                                        },
+                                                        onRemove = {
+                                                            resizingWidget = null
+                                                            widgetToRemove = item
+                                                        },
+                                                        onDone = { resizingWidget = null }
+                                                    )
+                                                }
+                                            }
                                         } else if (item.isFolder) {
                                             val inside = item.folderApps.mapNotNull { appsByKey[it] }
                                             Box(itemModifier, contentAlignment = Alignment.Center) {

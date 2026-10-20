@@ -19,6 +19,16 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.ui.draw.clip
@@ -313,4 +323,105 @@ private fun WidgetGroup(group: List<WidgetOption>, onPick: (WidgetOption) -> Uni
             }
         }
     }
+}
+
+/**
+ * מסגרת שינוי הגודל של ווידג'ט: ידית בצד וידית בתחתית.
+ * כל גרירה של חצי תא משנה את מספר התאים שהווידג'ט תופס.
+ */
+@Composable
+fun BoxScope.WidgetResizeFrame(
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    onResize: (Int, Int) -> Unit,
+    onRemove: () -> Unit,
+    onDone: () -> Unit
+) {
+    val color = MaterialTheme.colorScheme.primary
+    val haptics = LocalHapticFeedback.current
+
+    Box(
+        Modifier
+            .matchParentSize()
+            .border(2.dp, color, RoundedCornerShape(12.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDone
+            )
+    )
+
+    // ידית אופקית: רוחב
+    ResizeHandle(
+        modifier = Modifier.align(Alignment.CenterEnd),
+        color = color
+    ) { total ->
+        val steps = (total / (cellWidthPx * 0.6f)).toInt()
+        if (steps != 0) {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onResize(steps, 0)
+        }
+        steps != 0
+    }
+
+    // ידית אנכית: גובה
+    ResizeHandle(
+        modifier = Modifier.align(Alignment.BottomCenter),
+        color = color,
+        vertical = true
+    ) { total ->
+        val steps = (total / (cellHeightPx * 0.6f)).toInt()
+        if (steps != 0) {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onResize(0, steps)
+        }
+        steps != 0
+    }
+
+    // הסרת הווידג'ט
+    Box(
+        Modifier
+            .align(Alignment.TopStart)
+            .padding(2.dp)
+            .size(26.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .clickable { onRemove() },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Outlined.Close,
+            contentDescription = "הסרה",
+            tint = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+/** ידית עגולה. onStep מקבל את המרחק שנצבר ומחזיר true כשהוא נוצל */
+@Composable
+private fun ResizeHandle(
+    modifier: Modifier,
+    color: Color,
+    vertical: Boolean = false,
+    onStep: (Float) -> Boolean
+) {
+    var total by remember { mutableFloatStateOf(0f) }
+    Box(
+        modifier
+            .padding(2.dp)
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(color)
+            .pointerInput(vertical) {
+                detectDragGestures(
+                    onDragEnd = { total = 0f },
+                    onDragCancel = { total = 0f }
+                ) { change, delta ->
+                    change.consume()
+                    total += if (vertical) delta.y else delta.x
+                    if (onStep(total)) total = 0f
+                }
+            }
+    )
 }
