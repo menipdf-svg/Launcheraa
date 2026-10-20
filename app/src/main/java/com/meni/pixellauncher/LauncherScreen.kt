@@ -291,6 +291,8 @@ fun LauncherScreen(
     var openFolder by remember { mutableStateOf<Long?>(null) }
     // ווידג'ט במצב שינוי גודל: גרירת הידיות משנה כמה תאים הוא תופס
     var resizingWidget by remember { mutableStateOf<Long?>(null) }
+    // חלון העריכה של אפליקציה: שם, אייקון, מחווה, תיקייה והסתרה
+    var editTarget by remember { mutableStateOf<AppInfo?>(null) }
     var folderRename by remember { mutableStateOf<HomeItem?>(null) }
     var swipeMap by remember { mutableStateOf(emptyMap<String, String>()) }
     LaunchedEffect(refreshKey) { swipeMap = AppSwipes.all(context) }
@@ -487,39 +489,8 @@ fun LauncherScreen(
                 store.removeFromDock(dockIndex)
             }
         }
-        if (store.drawerCategories && categories != null) {
-            list += MenuAction("העברה לתיקייה", vector = Icons.Outlined.Edit) { moveTarget = app }
-        }
-        list += MenuAction("שינוי שם", vector = Icons.Outlined.Create) { renameApp = app }
-        list += MenuAction("בחירת אייקון", vector = Icons.Outlined.Star) { iconTarget = app }
-        val swipeNow = swipeMap[app.key]?.let { target -> apps.firstOrNull { it.key == target } }
-        list += MenuAction(
-            if (swipeNow != null) "מחווה: ${swipeNow.label}" else "מחווה על האייקון",
-            vector = Icons.Outlined.Add
-        ) { swipeTarget = app }
-        if (swipeNow != null) {
-            list += MenuAction("ביטול המחווה", vector = Icons.Outlined.Close) {
-                AppSwipes.set(context, app.key, null)
-                swipeMap = AppSwipes.all(context)
-            }
-        }
-        if (CustomIcons.has(context, app.key)) {
-            list += MenuAction("החזרת האייקון המקורי", vector = Icons.Outlined.Refresh) {
-                CustomIcons.clear(context, app.key)
-                iconRefresh++
-            }
-        }
-        list += MenuAction("הסתרה", vector = Icons.Outlined.Lock) {
-            store.hideApp(app.key)
-            store.trimEmptyPages(pagerState.currentPage)
-            val gesture = LauncherGesture.entries.firstOrNull { store.gestureActions[it] == GestureAction.HIDDEN }
-            val hint = gesture?.let { "${it.label} במסך הבית" } ?: "הגדרות ← אפליקציות מוסתרות"
-            android.widget.Toast.makeText(
-                context,
-                "${app.label} הוסתרה. להצגתה: $hint",
-                android.widget.Toast.LENGTH_LONG
-            ).show()
-        }
+        // כל אפשרויות העריכה מרוכזות בחלון נפרד, כדי שהתפריט יישאר קצר
+        list += MenuAction("עריכה", vector = Icons.Outlined.Create) { editTarget = app }
         list += MenuAction("פרטי האפליקציה", vector = Icons.Outlined.Info) { AppsRepository.openAppInfo(context, app.packageName) }
         if (!app.isSystem) {
             list += MenuAction("הסרת התקנה", vector = Icons.Outlined.Delete) { AppsRepository.uninstall(context, app.packageName) }
@@ -1448,6 +1419,46 @@ fun LauncherScreen(
                     iconTarget = null
                 }
                 LaunchedEffect(pickingIconFor.key) { picker.launch("image/*") }
+            }
+
+            // ================= חלון העריכה של אפליקציה =================
+            val editing = editTarget
+            if (editing != null) {
+                val swipeNow = swipeMap[editing.key]?.let { target -> apps.firstOrNull { it.key == target } }
+                AppEditDialog(
+                    app = editing,
+                    swipeLabel = swipeNow?.label,
+                    hasCustomIcon = CustomIcons.has(context, editing.key),
+                    canMoveToFolder = store.drawerCategories && categories != null,
+                    onRename = { editTarget = null; renameApp = editing },
+                    onPickIcon = { editTarget = null; iconTarget = editing },
+                    onResetIcon = {
+                        CustomIcons.clear(context, editing.key)
+                        iconRefresh++
+                        editTarget = null
+                    },
+                    onSwipe = { editTarget = null; swipeTarget = editing },
+                    onClearSwipe = {
+                        AppSwipes.set(context, editing.key, null)
+                        swipeMap = AppSwipes.all(context)
+                        editTarget = null
+                    },
+                    onMoveToFolder = { editTarget = null; moveTarget = editing },
+                    onHide = {
+                        editTarget = null
+                        store.hideApp(editing.key)
+                        store.trimEmptyPages(pagerState.currentPage)
+                        val gesture = LauncherGesture.entries
+                            .firstOrNull { store.gestureActions[it] == GestureAction.HIDDEN }
+                        val hint = gesture?.let { "${it.label} במסך הבית" } ?: "הגדרות ← אפליקציות מוסתרות"
+                        android.widget.Toast.makeText(
+                            context,
+                            "${editing.label} הוסתרה. להצגתה: $hint",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    },
+                    onDismiss = { editTarget = null }
+                )
             }
 
             // ================= תיקייה במסך הבית =================

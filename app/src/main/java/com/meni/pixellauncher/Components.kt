@@ -8,6 +8,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -495,6 +501,84 @@ fun HomeFolderDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("סגירה") } }
+    )
+}
+
+/** שורה אחת בחלון העריכה */
+@Composable
+private fun EditRow(title: String, subtitle: String?, icon: ImageVector, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 4.dp, vertical = 12.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(14.dp))
+        Column {
+            Text(title, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+            if (subtitle != null) {
+                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** כל אפשרויות העריכה של אפליקציה, במקום תפריט ארוך בלחיצה ארוכה */
+@Composable
+fun AppEditDialog(
+    app: AppInfo,
+    swipeLabel: String?,
+    hasCustomIcon: Boolean,
+    canMoveToFolder: Boolean,
+    onRename: () -> Unit,
+    onPickIcon: () -> Unit,
+    onResetIcon: () -> Unit,
+    onSwipe: () -> Unit,
+    onClearSwipe: () -> Unit,
+    onMoveToFolder: () -> Unit,
+    onHide: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(bitmap = app.icon, contentDescription = null, modifier = Modifier.size(34.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(app.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                EditRow("שינוי שם", app.originalLabel.takeIf { it != app.label }, Icons.Outlined.Create, onRename)
+                EditRow(
+                    "בחירת אייקון",
+                    if (hasCustomIcon) "אייקון מותאם פעיל" else "תמונה מהגלריה",
+                    Icons.Outlined.Star,
+                    onPickIcon
+                )
+                if (hasCustomIcon) {
+                    EditRow("החזרת האייקון המקורי", null, Icons.Outlined.Refresh, onResetIcon)
+                }
+                EditRow(
+                    "מחווה על האייקון",
+                    swipeLabel?.let { "החלקה מעלה פותחת את $it" } ?: "החלקה מעלה תפתח אפליקציה אחרת",
+                    Icons.Outlined.Add,
+                    onSwipe
+                )
+                if (swipeLabel != null) {
+                    EditRow("ביטול המחווה", null, Icons.Outlined.Close, onClearSwipe)
+                }
+                if (canMoveToFolder) {
+                    EditRow("העברה לתיקייה במגירה", null, Icons.Outlined.Edit, onMoveToFolder)
+                }
+                EditRow("הסתרת האפליקציה", null, Icons.Outlined.Lock, onHide)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("סגירה") } }
