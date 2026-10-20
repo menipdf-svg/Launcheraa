@@ -3,6 +3,7 @@ package com.meni.pixellauncher
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
@@ -136,6 +137,18 @@ object AppsRepository {
             if (ok) return
         }
     }
+
+    /** האם האפליקציה הותקנה מ-Google Play. רק אז יש טעם לבדוק שם עדכון */
+    fun installedFromPlay(context: Context, packageName: String): Boolean = runCatching {
+        val pm = context.packageManager
+        val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            pm.getInstallSourceInfo(packageName).installingPackageName
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstallerPackageName(packageName)
+        }
+        installer == "com.android.vending"
+    }.getOrDefault(false)
 
     /** פותח את דף האפליקציה ב-Google Play, או בדפדפן אם Play אינו זמין */
     fun openPlayStore(context: Context, packageName: String) {

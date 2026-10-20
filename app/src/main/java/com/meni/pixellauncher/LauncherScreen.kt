@@ -499,6 +499,12 @@ fun LauncherScreen(
         list += MenuAction("פרטי האפליקציה", vector = Icons.Outlined.Info, iconOnly = true) {
             AppsRepository.openAppInfo(context, app.packageName)
         }
+        // בדיקת עדכון: רק לאפליקציות שהותקנו מ-Google Play
+        if (AppsRepository.installedFromPlay(context, app.packageName)) {
+            list += MenuAction("בדיקת עדכון", vector = Icons.Outlined.Refresh, iconOnly = true) {
+                AppsRepository.openPlayStore(context, app.packageName)
+            }
+        }
         if (!app.isSystem) {
             list += MenuAction("הסרת התקנה", vector = Icons.Outlined.Delete, iconOnly = true) {
                 AppsRepository.uninstall(context, app.packageName)
