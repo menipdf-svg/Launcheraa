@@ -46,6 +46,7 @@ import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -103,7 +104,7 @@ class DropTargets {
     var remove: Rect = Rect.Zero
 }
 
-private val GRID_PAD_H = 12.dp
+private val GRID_PAD_H = 20.dp
 private val GRID_PAD_V = 8.dp
 
 @Composable
@@ -297,6 +298,8 @@ fun LauncherScreen(
     var openFolder by remember { mutableStateOf<Long?>(null) }
     // ווידג'ט במצב שינוי גודל: גרירת הידיות משנה כמה תאים הוא תופס
     var resizingWidget by remember { mutableStateOf<Long?>(null) }
+    // סידור בתיקיות: התוכנית מוצגת לאישור לפני שמשהו זז
+    var organizePlan by remember { mutableStateOf<List<Pair<String, List<HomeItem>>>?>(null) }
     // חלון העריכה של אפליקציה: שם, אייקון, מחווה, תיקייה והסתרה
     var editTarget by remember { mutableStateOf<AppInfo?>(null) }
     var folderRename by remember { mutableStateOf<HomeItem?>(null) }
@@ -800,6 +803,19 @@ fun LauncherScreen(
                         scaleX = 1f - 0.04f * p
                         scaleY = 1f - 0.04f * p
                     }
+                    // הצללה עדינה בראש המסך, מאחורי התאריך, מזג האוויר והתאריך העברי:
+                    // הטקסט הלבן נשאר קריא גם על אזור בהיר בטפט, בלי פס כהה מורגש
+                    .drawBehind {
+                        drawRect(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                0f to Color.Black.copy(alpha = 0.42f),
+                                0.55f to Color.Black.copy(alpha = 0.16f),
+                                1f to Color.Transparent,
+                                endY = 340.dp.toPx()
+                            ),
+                            size = androidx.compose.ui.geometry.Size(size.width, 340.dp.toPx())
+                        )
+                    }
                     .systemBarsPadding()
             ) {
                 val weather = rememberWeather(store.on(Feature.GLANCE_WEATHER) && !safeActive, refreshKey)
@@ -1093,6 +1109,16 @@ fun LauncherScreen(
                                         onTimedLock = {
                                             homeMenu = null
                                             timedLockDialog = true
+                                        },
+                                        onOrganize = {
+                                            homeMenu = null
+                                            val packages = store.home.mapNotNull { it.appKey?.substringBefore('/') }.distinct()
+                                            val groups = categories ?: CategoryRepository.cached(context, packages)
+                                            val plan = store.folderPlan { key ->
+                                                groups[key.substringBefore('/')]?.let { it.id to it.label }
+                                            }
+                                            if (plan.isEmpty()) toast("אין אייקונים מאותה קטגוריה לקבץ")
+                                            else organizePlan = plan
                                         },
                                         onCancelLock = {
                                             homeMenu = null
@@ -1578,6 +1604,28 @@ fun LauncherScreen(
                 LaunchedEffect(pickingIconFor.key) { picker.launch("image/*") }
             }
 
+            // ================= סידור בתיקיות =================
+            val plan = organizePlan
+            if (plan != null) {
+                AlertDialog(
+                    onDismissRequest = { organizePlan = null },
+                    title = { Text("סידור בתיקיות") },
+                    text = {
+                        Text(
+                            plan.joinToString("\n") { (name, items) -> "$name · ${items.size} אפליקציות" }
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            store.applyFolderPlan(plan)
+                            store.trimEmptyPages(pagerState.currentPage)
+                            organizePlan = null
+                        }) { Text("סידור") }
+                    },
+                    dismissButton = { TextButton(onClick = { organizePlan = null }) { Text("ביטול") } }
+                )
+            }
+
             // ================= חלון העריכה של אפליקציה =================
             val editing = editTarget
             // הבחירה נשמרת גם במצב מקומי, כדי שהטבעת תזוז מיד ולא רק אחרי טעינת האייקונים
@@ -1774,7 +1822,8 @@ private fun HomeMenuPopup(
     timedLock: Boolean = false,
     strictLock: Boolean = false,
     onTimedLock: () -> Unit = {},
-    onCancelLock: () -> Unit = {}
+    onCancelLock: () -> Unit = {},
+    onOrganize: () -> Unit = {}
 ) {
     val density = LocalDensity.current
     val menuWidthPx = with(density) { 248.dp.toPx() }
@@ -1801,6 +1850,7 @@ private fun HomeMenuPopup(
                             MenuRow("ווידג'טים", Icons.Outlined.Add, onWidgets)
                             MenuRow("טפטים", Icons.Outlined.Create, onWallpaper)
                             MenuRow("נעילה לזמן קצוב", Icons.Outlined.Lock, onTimedLock)
+                            MenuRow("סידור בתיקיות", Icons.Outlined.Edit, onOrganize)
                         }
                     }
                     if (!(timedLock && strictLock)) MenuRow("הגדרות", Icons.Outlined.Settings, onSettings)

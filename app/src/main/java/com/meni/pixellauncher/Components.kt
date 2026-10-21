@@ -413,11 +413,14 @@ fun HomeFolderTile(
                     .launcherItemGestures(itemKey, onOpen, onLongPress, onMove, onRelease)
                     .padding(horizontal = 4.dp, vertical = 6.dp)
             ) {
+                // אותה זכוכית כהה כמו כרטיס המוזיקה, כדי שהמסך ייראה אחיד
                 Box(
                     Modifier
                         .size(iconSize)
                         .clip(shape)
-                        .background(Color.White.copy(alpha = 0.22f)),
+                        .background(Color.Black.copy(alpha = 0.30f))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .border(1.dp, Color.White.copy(alpha = 0.16f), shape),
                     contentAlignment = Alignment.Center
                 ) {
                     val mini = iconSize * 0.36f
@@ -454,7 +457,9 @@ fun HomeFolderTile(
                         .weight(1f)
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(26.dp))
-                        .background(Color.White.copy(alpha = 0.2f))
+                        .background(Color.Black.copy(alpha = 0.30f))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(26.dp))
                         .onSizeChanged { gridSize = it }
                         .launcherItemGestures(
                             itemKey, onOpen, onLongPress, onMove, onRelease,

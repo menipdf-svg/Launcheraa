@@ -138,8 +138,9 @@ class NotifService : NotificationListenerService() {
             isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING,
             duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION),
             controller = controller,
-            likeAction = findLikeAction(controller.playbackState),
-            likeIcon = findLikeAction(controller.playbackState)?.let { likeIconFor(controller.packageName, it) },
+            likeAction = likeFor(controller.packageName, controller.playbackState),
+            likeIcon = likeFor(controller.packageName, controller.playbackState)
+                ?.let { likeIconFor(controller.packageName, it) },
             heart = heartState(controller, metadata)
         )
         main.post { nowPlaying.value = value }
@@ -160,6 +161,24 @@ class NotifService : NotificationListenerService() {
             val text = (action.action + " " + action.name).lowercase()
             wanted.any { it in text } && unwanted.none { it in text }
         }
+    }
+
+    /**
+     * אחרי לחיצה, האפליקציה מחליפה את פעולת "אהבתי" בפעולה של מצב "אהבת כבר",
+     * לעיתים בשם שלא נראה כמו "אהבתי". לכן נשמר המקום של הפעולה ברשימה,
+     * והפעולה שנמצאת באותו מקום משמשת גם אחרי ההחלפה, עם הסמל המלא שלה.
+     */
+    private val likeSlots = HashMap<String, Int>()
+
+    private fun likeFor(packageName: String, state: PlaybackState?): PlaybackState.CustomAction? {
+        val actions = state?.customActions.orEmpty()
+        val found = findLikeAction(state)
+        if (found != null) {
+            likeSlots[packageName] = actions.indexOf(found)
+            return found
+        }
+        val slot = likeSlots[packageName] ?: return null
+        return actions.getOrNull(slot)
     }
 
     private fun likeIconFor(packageName: String, action: PlaybackState.CustomAction): Bitmap? = runCatching {

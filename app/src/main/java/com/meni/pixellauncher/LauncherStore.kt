@@ -663,6 +663,33 @@ class LauncherStore(context: Context) {
         return page
     }
 
+    /**
+     * תוכנית לסידור בתיקיות: אייקונים בודדים באותו דף ובאותה קטגוריה מתקבצים,
+     * רק כשיש לפחות שניים. ווידג'טים, תיקיות קיימות וה-Dock לא נוגעים.
+     */
+    fun folderPlan(groupOf: (String) -> Pair<String, String>?): List<Pair<String, List<HomeItem>>> =
+        home.filter { it.appKey != null && !it.isFolder }
+            .groupBy { item -> item.page to groupOf(item.appKey!!) }
+            .filter { (key, items) -> key.second != null && items.size >= 2 }
+            .map { (key, items) -> key.second!!.second to items.sortedWith(compareBy({ it.y }, { it.x })) }
+
+    /** מבצע את התוכנית: האייקון הראשון בכל קבוצה הופך לתיקייה, והשאר מפנים את מקומם */
+    fun applyFolderPlan(plan: List<Pair<String, List<HomeItem>>>) {
+        plan.forEach { (name, items) ->
+            val first = items.first()
+            val index = home.indexOfFirst { it.id == first.id }
+            if (index < 0) return@forEach
+            val ids = items.drop(1).map { it.id }.toSet()
+            home[index] = first.copy(
+                appKey = null,
+                folderApps = items.mapNotNull { it.appKey }.distinct(),
+                folderName = name
+            )
+            home.removeAll { it.id in ids }
+        }
+        save()
+    }
+
     fun renameHomeFolder(id: Long, name: String) {
         val index = home.indexOfFirst { it.id == id }
         if (index < 0) return

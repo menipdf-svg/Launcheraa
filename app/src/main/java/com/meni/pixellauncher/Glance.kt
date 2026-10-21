@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -257,7 +258,7 @@ object GlanceData {
 
 // ================= תצוגה =================
 
-private val glanceShadow = Shadow(color = Color.Black.copy(alpha = 0.35f), blurRadius = 6f)
+private val glanceShadow = Shadow(color = Color.Black.copy(alpha = 0.55f), offset = Offset(0f, 1.5f), blurRadius = 10f)
 
 /**
  * טוען את מזג האוויר הנוכחי ומרענן אותו מדי 20 דקות.
@@ -363,7 +364,7 @@ fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Mod
 
         // מתנגן עכשיו. לרוחב הכרטיס מוצג בנפרד, לצד המידע
         if (showMedia && store.on(Feature.GLANCE_MEDIA) && NotifService.nowPlaying.value != null) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(12.dp))
             GlanceMedia(store)
         }
     }
@@ -419,18 +420,27 @@ private fun NowPlayingCard(
     }
 
     Box(modifier) {
-        Surface(
-            shape = RoundedCornerShape(if (size == MediaCardSize.SMALL) 16.dp else 20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f),
+        // זכוכית כהה: מילוי שחור שקוף למחצה, ברק עדין מלמעלה ומסגרת דקה בהירה.
+        // כך הכרטיס נקרא היטב על טפט כהה, והטפט עדיין מורגש מבעדו
+        val glassShape = RoundedCornerShape(if (size == MediaCardSize.SMALL) 20.dp else 26.dp)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize(spring(dampingRatio = 1f, stiffness = 500f))
+                .clip(glassShape)
+                .background(Color.Black.copy(alpha = 0.40f))
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.04f))
+                    )
+                )
+                .border(1.dp, Color.White.copy(alpha = 0.16f), glassShape)
                 .combinedClickable(onClick = openApp, onLongClick = { menuOpen = true })
         ) {
             Column(
                 Modifier.padding(
-                    horizontal = 10.dp,
-                    vertical = if (size == MediaCardSize.SMALL) 6.dp else 10.dp
+                    horizontal = 14.dp,
+                    vertical = if (size == MediaCardSize.SMALL) 6.dp else 12.dp
                 )
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -441,7 +451,7 @@ private fun NowPlayingCard(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .size(artSize)
-                                .clip(RoundedCornerShape(if (size == MediaCardSize.LARGE) 14.dp else 10.dp))
+                                .clip(RoundedCornerShape(if (size == MediaCardSize.LARGE) 16.dp else 12.dp))
                         )
                         Spacer(Modifier.width(12.dp))
                     }
@@ -449,7 +459,7 @@ private fun NowPlayingCard(
                         Text(
                             playing.title,
                             fontSize = if (size == MediaCardSize.LARGE) 17.sp else 15.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -457,7 +467,7 @@ private fun NowPlayingCard(
                             Text(
                                 playing.artist,
                                 fontSize = if (size == MediaCardSize.LARGE) 14.sp else 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = Color.White.copy(alpha = 0.75f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -487,12 +497,12 @@ private fun NowPlayingCard(
                                 }
                             )
                             Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp)) {
-                                Text(formatTime(shown), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatTime(shown), fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
                                 Spacer(Modifier.weight(1f))
                                 Text(
                                     "-" + formatTime(duration - shown),
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = Color.White.copy(alpha = 0.75f)
                                 )
                             }
                         }
@@ -547,7 +557,9 @@ private fun MediaControls(playing: NowPlaying, small: Boolean, withLike: Boolean
 private fun LikeButton(playing: NowPlaying) {
     val action = playing.likeAction
     val heart = playing.heart
-    if (action == null && heart == null) return
+    // אחרי לחיצה הכפתור נשאר ומתמלא, גם אם האפליקציה לא מחזירה סמל מלא
+    var likedHere by remember(playing.title) { mutableStateOf(false) }
+    if (action == null && heart == null && !likedHere) return
     var pop by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (pop) 1.3f else 1f,
@@ -561,12 +573,16 @@ private fun LikeButton(playing: NowPlaying) {
             .clip(CircleShape)
             .clickable {
                 pop = true
-                if (action != null) {
-                    playing.controller.transportControls.sendCustomAction(action, null)
-                } else {
-                    playing.controller.transportControls.setRating(
-                        android.media.Rating.newHeartRating(heart != true)
+                when {
+                    action != null -> {
+                        likedHere = !likedHere
+                        playing.controller.transportControls.sendCustomAction(action, null)
+                    }
+                    heart != null -> playing.controller.transportControls.setRating(
+                        android.media.Rating.newHeartRating(!heart)
                     )
+                    // הפעולה כבר לא קיימת: אין מה לשלוח, רק להחזיר את הלב לריק
+                    else -> likedHere = false
                 }
             }
             .graphicsLayer {
@@ -576,14 +592,21 @@ private fun LikeButton(playing: NowPlaying) {
         contentAlignment = Alignment.Center
     ) {
         val icon = remember(playing.likeIcon) { playing.likeIcon?.asImageBitmap() }
+        val filled = heart == true || (action == null && likedHere)
         if (action != null && icon != null) {
-            Image(bitmap = icon, contentDescription = "אהבתי", modifier = Modifier.size(22.dp))
+            // הסמל של האפליקציה עצמה, צבוע לבן כדי להתאים לכרטיס הכהה
+            Image(
+                bitmap = icon,
+                contentDescription = "אהבתי",
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White),
+                modifier = Modifier.size(22.dp)
+            )
         } else {
             androidx.compose.material3.Icon(
-                if (heart == true) androidx.compose.material.icons.Icons.Filled.Favorite
+                if (filled) androidx.compose.material.icons.Icons.Filled.Favorite
                 else androidx.compose.material.icons.Icons.Filled.FavoriteBorder,
-                contentDescription = "אהבתי",
-                tint = if (heart == true) Color(0xFFE91E63) else MaterialTheme.colorScheme.onSurfaceVariant,
+                contentDescription = if (filled) "נשמר בשירים שאהבת" else "אהבתי",
+                tint = if (filled) Color(0xFFFF4D7D) else Color.White,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -640,14 +663,14 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onCommit: (Float) 
                 .fillMaxWidth()
                 .height(barHeight)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = trackAlpha))
+                .background(Color.White.copy(alpha = trackAlpha))
         ) {
             Box(
                 Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(fraction.coerceIn(0.001f, 1f))
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = fillAlpha))
+                    .background(Color.White.copy(alpha = fillAlpha))
             )
         }
     }
@@ -667,8 +690,8 @@ private enum class MediaGlyph { PLAY, PAUSE, NEXT, PREVIOUS }
 /** כפתורי מדיה מצוירים (אין אותם בחבילת האייקונים הבסיסית) */
 @Composable
 private fun MediaButton(glyph: MediaGlyph, large: Boolean = false, onClick: () -> Unit) {
-    val color = MaterialTheme.colorScheme.onSurface
-    val background = if (large) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    val color = if (large) Color(0xFF111318) else Color.White
+    val background = if (large) Color.White else Color.Transparent
     // משטח המגע 48dp לפחות, גם כשהסמל קטן ממנו
     Box(
         Modifier

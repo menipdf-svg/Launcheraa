@@ -96,7 +96,7 @@ fun AtAGlance(
         fontSize = 22.sp,
         fontWeight = FontWeight.Normal,
         color = Color.White,
-        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 6f)
+        shadow = Shadow(color = Color.Black.copy(alpha = 0.55f), offset = Offset(0f, 1.5f), blurRadius = 10f)
     )
 
     Row(
