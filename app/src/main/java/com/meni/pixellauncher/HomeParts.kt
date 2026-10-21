@@ -195,10 +195,25 @@ fun AppDrawer(
     var openCategory by remember { mutableStateOf<DrawerGroup?>(null) }
     BackHandler(enabled = openCategory != null) { openCategory = null }
     val filtered = remember(apps, query) {
-        if (query.isBlank()) apps
-        else apps.filter {
-            it.label.contains(query.trim(), ignoreCase = true) ||
-                it.originalLabel.contains(query.trim(), ignoreCase = true)
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) apps
+        else {
+            // דירוג: שם שמתחיל במה שהוקלד קודם, אחר כך מילה שמתחילה בו, ואחר כך כל התאמה
+            fun rank(name: String): Int {
+                val n = name.lowercase()
+                return when {
+                    n.startsWith(q) -> 0
+                    n.split(' ', '-', '.', '_').any { it.startsWith(q) } -> 1
+                    n.contains(q) -> 2
+                    else -> 3
+                }
+            }
+            apps.asSequence()
+                .map { it to minOf(rank(it.label), rank(it.originalLabel)) }
+                .filter { it.second < 3 }
+                .sortedBy { it.second } // יציב: בתוך כל דרגה נשמר הסדר לפי א-ב
+                .map { it.first }
+                .toList()
         }
     }
     val focusRequester = remember { FocusRequester() }
@@ -207,7 +222,8 @@ fun AppDrawer(
 
     LaunchedEffect(Unit) {
         if (autoFocusSearch) {
-            delay(200)
+            // פריים אחד מספיק כדי שהשדה יהיה מוכן; המקלדת עולה מיד עם פתיחת המגירה
+            withFrameNanos { }
             try {
                 focusRequester.requestFocus()
             } catch (_: Exception) {
@@ -391,7 +407,7 @@ fun AppDrawer(
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go, autoCorrectEnabled = false),
                 keyboardActions = KeyboardActions(onGo = {
                     filtered.firstOrNull()?.let {
                         keyboard?.hide()
@@ -534,7 +550,7 @@ fun AppDrawer(
                                     .padding(start = 12.dp, end = 12.dp, top = 14.dp)
                             )
                             is DrawerEntry.Folder -> Box(
-                                Modifier.fillMaxWidth().animateItem(),
+                                Modifier.fillMaxWidth().then(if (query.isBlank()) Modifier.animateItem() else Modifier),
                                 contentAlignment = Alignment.Center
                             ) {
                                 FolderTile(
@@ -554,7 +570,7 @@ fun AppDrawer(
                                 )
                             }
                             is DrawerEntry.App -> Box(
-                                Modifier.fillMaxWidth().animateItem(),
+                                Modifier.fillMaxWidth().then(if (query.isBlank()) Modifier.animateItem() else Modifier),
                                 contentAlignment = Alignment.Center
                             ) {
                                 appContent(entry.app)

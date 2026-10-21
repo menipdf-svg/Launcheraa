@@ -731,7 +731,7 @@ fun LauncherScreen(
     // קפיץ במקום עקומה אחידה: המגירה נכנסת עם מעט תנופה ונעצרת רך
     val drawerProgress by animateFloatAsState(
         targetValue = if (drawerOpen) 1f else 0f,
-        animationSpec = spring(dampingRatio = 1f, stiffness = 420f),
+        animationSpec = spring(dampingRatio = 1f, stiffness = 600f),
         label = "drawer"
     )
     // המגירה נשארת "חיה" בזמן גרירה ממנה, כדי שהאצבע לא תאבד את האייקון
