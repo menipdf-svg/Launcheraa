@@ -797,14 +797,35 @@ fun LauncherScreen(
                     }
                     .systemBarsPadding()
             ) {
-                AtAGlance(
-                    onClick = { AppsRepository.openCalendar(context) },
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                    weather = rememberWeather(store.on(Feature.GLANCE_WEATHER) && !safeActive, refreshKey),
-                    onWeatherClick = { GlanceData.openWeather(context) }
-                )
-                if (!safeActive) {
-                    GlanceExtras(store, refreshKey, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp))
+                val weather = rememberWeather(store.on(Feature.GLANCE_WEATHER) && !safeActive, refreshKey)
+                if (isLandscape && !safeActive) {
+                    // לרוחב: המידע המהיר מימין, וכרטיס המוזיקה מוקטן לצידו, כדי לחסוך גובה
+                    Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(end = 24.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            AtAGlance(
+                                onClick = { AppsRepository.openCalendar(context) },
+                                modifier = Modifier.padding(horizontal = 24.dp),
+                                weather = weather,
+                                onWeatherClick = { GlanceData.openWeather(context) }
+                            )
+                            GlanceExtras(
+                                store, refreshKey,
+                                Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+                                showMedia = false
+                            )
+                        }
+                        GlanceMedia(store, Modifier.width(340.dp).padding(top = 22.dp), forceSmall = true)
+                    }
+                } else {
+                    AtAGlance(
+                        onClick = { AppsRepository.openCalendar(context) },
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        weather = weather,
+                        onWeatherClick = { GlanceData.openWeather(context) }
+                    )
+                    if (!safeActive) {
+                        GlanceExtras(store, refreshKey, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp))
+                    }
                 }
                 if (safeActive) {
                     Row(

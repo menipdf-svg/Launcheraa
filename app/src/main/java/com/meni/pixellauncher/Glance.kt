@@ -12,6 +12,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -272,7 +279,7 @@ fun rememberWeather(enabled: Boolean, refreshKey: Int): Weather? {
 
 /** השורות מתחת לתאריך: תאריך עברי, שקיעה, האירוע הבא ומה מתנגן */
 @Composable
-fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Modifier) {
+fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Modifier, showMedia: Boolean = true) {
     val context = LocalContext.current
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
@@ -337,19 +344,39 @@ fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Mod
             )
         }
 
-        // מתנגן עכשיו
-        val playing = NotifService.nowPlaying.value
-        if (store.on(Feature.GLANCE_MEDIA) && playing != null) {
+        // מתנגן עכשיו. לרוחב הכרטיס מוצג בנפרד, לצד המידע
+        if (showMedia && store.on(Feature.GLANCE_MEDIA) && NotifService.nowPlaying.value != null) {
             Spacer(Modifier.height(4.dp))
-            NowPlayingCard(playing)
+            GlanceMedia(store)
         }
     }
 }
 
+/** כרטיס המוזיקה, לשימוש גם מחוץ ל-GlanceExtras (לרוחב הוא עובר לצד המידע) */
 @Composable
-private fun NowPlayingCard(playing: NowPlaying) {
+fun GlanceMedia(store: LauncherStore, modifier: Modifier = Modifier, forceSmall: Boolean = false) {
+    val playing = NotifService.nowPlaying.value
+    if (store.on(Feature.GLANCE_MEDIA) && playing != null) {
+        NowPlayingCard(
+            playing = playing,
+            size = if (forceSmall) MediaCardSize.SMALL else store.mediaCardSize,
+            onSize = { store.updateMediaCardSize(it) },
+            modifier = modifier
+        )
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun NowPlayingCard(
+    playing: NowPlaying,
+    size: MediaCardSize,
+    onSize: (MediaCardSize) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val controls = playing.controller.transportControls
+    var menuOpen by remember { mutableStateOf(false) }
 
     // המיקום בשיר, מתעדכן בזמן נגינה
     var position by remember(playing.title) { mutableLongStateOf(playing.positionNow()) }
@@ -361,90 +388,187 @@ private fun NowPlayingCard(playing: NowPlaying) {
         }
     }
 
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                context.packageManager.getLaunchIntentForPackage(playing.packageName)?.let {
-                    runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                }
-            }
-    ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val art = remember(playing.art) { playing.art?.asImageBitmap() }
-                if (art != null) {
-                    Image(
-                        bitmap = art,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp))
-                    )
-                    Spacer(Modifier.width(12.dp))
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        playing.title,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (playing.artist.isNotBlank()) {
+    val openApp = {
+        context.packageManager.getLaunchIntentForPackage(playing.packageName)?.let {
+            runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
+        Unit
+    }
+    val art = remember(playing.art) { playing.art?.asImageBitmap() }
+    val artSize = when (size) {
+        MediaCardSize.SMALL -> 36.dp
+        MediaCardSize.MEDIUM -> 44.dp
+        MediaCardSize.LARGE -> 72.dp
+    }
+
+    Box(modifier) {
+        Surface(
+            shape = RoundedCornerShape(if (size == MediaCardSize.SMALL) 16.dp else 20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(spring(dampingRatio = 1f, stiffness = 500f))
+                .combinedClickable(onClick = openApp, onLongClick = { menuOpen = true })
+        ) {
+            Column(
+                Modifier.padding(
+                    horizontal = 10.dp,
+                    vertical = if (size == MediaCardSize.SMALL) 6.dp else 10.dp
+                )
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (art != null) {
+                        Image(
+                            bitmap = art,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(artSize)
+                                .clip(RoundedCornerShape(if (size == MediaCardSize.LARGE) 14.dp else 10.dp))
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
                         Text(
-                            playing.artist,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            playing.title,
+                            fontSize = if (size == MediaCardSize.LARGE) 17.sp else 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                    }
-                }
-                // כפתורי המדיה תמיד באותו סדר: קודם משמאל, הבא מימין
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        MediaButton(MediaGlyph.PREVIOUS) { controls.skipToPrevious() }
-                        MediaButton(if (playing.isPlaying) MediaGlyph.PAUSE else MediaGlyph.PLAY, large = true) {
-                            if (playing.isPlaying) controls.pause() else controls.play()
+                        if (size != MediaCardSize.SMALL && playing.artist.isNotBlank()) {
+                            Text(
+                                playing.artist,
+                                fontSize = if (size == MediaCardSize.LARGE) 14.sp else 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
-                        MediaButton(MediaGlyph.NEXT) { controls.skipToNext() }
+                    }
+                    // בגודל קטן ובינוני הכפתורים באותה שורה. בגדול הם יורדים לשורה משלהם
+                    if (size != MediaCardSize.LARGE) {
+                        MediaControls(playing, small = size == MediaCardSize.SMALL)
+                    } else {
+                        LikeButton(playing)
                     }
                 }
-            }
 
-            // סרגל התקדמות שאפשר לגרור בו
-            val duration = playing.duration
-            if (duration > 0) {
-                val shown = if (dragFraction >= 0f) (dragFraction * duration).toLong() else position
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Column(Modifier.padding(top = 2.dp)) {
-                        SeekBar(
-                            fraction = (shown.toFloat() / duration).coerceIn(0f, 1f),
-                            onDrag = { dragFraction = it },
-                            onCommit = {
-                                controls.seekTo((it * duration).toLong())
-                                position = (it * duration).toLong()
-                                dragFraction = -1f
+                // סרגל התקדמות שאפשר לגרור בו. בגודל הקטן אין
+                val duration = playing.duration
+                if (size != MediaCardSize.SMALL && duration > 0) {
+                    val shown = if (dragFraction >= 0f) (dragFraction * duration).toLong() else position
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Column(Modifier.padding(top = 2.dp)) {
+                            SeekBar(
+                                fraction = (shown.toFloat() / duration).coerceIn(0f, 1f),
+                                onDrag = { dragFraction = it },
+                                onCommit = {
+                                    controls.seekTo((it * duration).toLong())
+                                    position = (it * duration).toLong()
+                                    dragFraction = -1f
+                                }
+                            )
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp)) {
+                                Text(formatTime(shown), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    "-" + formatTime(duration - shown),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        )
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp)) {
-                            Text(
-                                formatTime(shown),
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                "-" + formatTime(duration - shown),
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
                 }
+                if (size == MediaCardSize.LARGE) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        MediaControls(playing, small = false, withLike = false, wide = true)
+                    }
+                }
             }
+        }
+
+        if (menuOpen) {
+            LauncherMenu(
+                actions = MediaCardSize.entries.map { option ->
+                    MenuAction(
+                        option.label,
+                        vector = if (option == size) androidx.compose.material.icons.Icons.Outlined.Check else null
+                    ) { onSize(option) }
+                },
+                onDismissMenu = { menuOpen = false }
+            )
+        }
+    }
+}
+
+/** כפתורי השליטה. תמיד באותו סדר: קודם משמאל, הבא מימין */
+@Composable
+private fun MediaControls(playing: NowPlaying, small: Boolean, withLike: Boolean = true, wide: Boolean = false) {
+    val controls = playing.controller.transportControls
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (wide) Arrangement.spacedBy(18.dp) else Arrangement.Start
+        ) {
+            if (withLike) LikeButton(playing)
+            if (!small) MediaButton(MediaGlyph.PREVIOUS) { controls.skipToPrevious() }
+            MediaButton(if (playing.isPlaying) MediaGlyph.PAUSE else MediaGlyph.PLAY, large = !small) {
+                if (playing.isPlaying) controls.pause() else controls.play()
+            }
+            MediaButton(MediaGlyph.NEXT) { controls.skipToNext() }
+        }
+    }
+}
+
+/**
+ * "אהבתי": הפעולה של אפליקציית המוזיקה עצמה (בספוטיפיי: הוספה לשירים שאהבת),
+ * עם הסמל שלה, כך שהלב מתמלא כשהשיר כבר שמור. לא מוצג כשהאפליקציה אינה תומכת.
+ */
+@Composable
+private fun LikeButton(playing: NowPlaying) {
+    val action = playing.likeAction
+    val heart = playing.heart
+    if (action == null && heart == null) return
+    var pop by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (pop) 1.3f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
+        finishedListener = { pop = false },
+        label = "likePop"
+    )
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable {
+                pop = true
+                if (action != null) {
+                    playing.controller.transportControls.sendCustomAction(action, null)
+                } else {
+                    playing.controller.transportControls.setRating(
+                        android.media.Rating.newHeartRating(heart != true)
+                    )
+                }
+            }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        val icon = remember(playing.likeIcon) { playing.likeIcon?.asImageBitmap() }
+        if (action != null && icon != null) {
+            Image(bitmap = icon, contentDescription = "אהבתי", modifier = Modifier.size(22.dp))
+        } else {
+            androidx.compose.material3.Icon(
+                if (heart == true) androidx.compose.material.icons.Icons.Filled.Favorite
+                else androidx.compose.material.icons.Icons.Filled.FavoriteBorder,
+                contentDescription = "אהבתי",
+                tint = if (heart == true) Color(0xFFE91E63) else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }

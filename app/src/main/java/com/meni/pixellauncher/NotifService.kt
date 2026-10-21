@@ -24,7 +24,13 @@ data class NowPlaying(
     val art: Bitmap?,
     val isPlaying: Boolean,
     val duration: Long,
-    val controller: MediaController
+    val controller: MediaController,
+    /** פעולת "אהבתי" של אפליקציית המוזיקה (למשל הוספה לשירים שאהבת בספוטיפיי), אם יש */
+    val likeAction: PlaybackState.CustomAction? = null,
+    /** הסמל שהאפליקציה עצמה נותנת לפעולה: לב ריק או מלא לפי המצב */
+    val likeIcon: Bitmap? = null,
+    /** חלופה: דירוג לב סטנדרטי. null = האפליקציה אינה תומכת */
+    val heart: Boolean? = null
 ) {
     /** המיקום בשיר ברגע זה, מחושב מהזמן שעבר מאז העדכון האחרון */
     fun positionNow(): Long {
@@ -131,8 +137,45 @@ class NotifService : NotificationListenerService() {
                 ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART),
             isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING,
             duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION),
-            controller = controller
+            controller = controller,
+            likeAction = findLikeAction(controller.playbackState),
+            likeIcon = findLikeAction(controller.playbackState)?.let { likeIconFor(controller.packageName, it) },
+            heart = heartState(controller, metadata)
         )
         main.post { nowPlaying.value = value }
+    }
+
+    /**
+     * אפליקציות מוזיקה חושפות "אהבתי" כפעולה מותאמת, בשמות שונים:
+     * ספוטיפיי (הוספה לאוסף), YouTube Music (אגודל למעלה), ואחרות (לב, מועדפים).
+     */
+    private fun findLikeAction(state: PlaybackState?): PlaybackState.CustomAction? {
+        val actions = state?.customActions.orEmpty()
+        val wanted = listOf(
+            "like", "heart", "favorite", "favourite", "collection", "library", "save",
+            "thumbs_up", "thumb_up", "thumbsup", "love", "add_to", "אהבת", "מועדפ", "שמירה"
+        )
+        val unwanted = listOf("dislike", "thumbs_down", "thumb_down", "shuffle", "repeat")
+        return actions.firstOrNull { action ->
+            val text = (action.action + " " + action.name).lowercase()
+            wanted.any { it in text } && unwanted.none { it in text }
+        }
+    }
+
+    private fun likeIconFor(packageName: String, action: PlaybackState.CustomAction): Bitmap? = runCatching {
+        val resources = packageManager.getResourcesForApplication(packageName)
+        val drawable = resources.getDrawable(action.icon, null) ?: return null
+        val size = 72
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        drawable.setBounds(0, 0, size, size)
+        drawable.draw(canvas)
+        bitmap
+    }.getOrNull()
+
+    private fun heartState(controller: MediaController, metadata: MediaMetadata): Boolean? {
+        val canRate = (controller.playbackState?.actions ?: 0L) and PlaybackState.ACTION_SET_RATING != 0L
+        if (!canRate || controller.ratingType != android.media.Rating.RATING_HEART) return null
+        return metadata.getRating(MediaMetadata.METADATA_KEY_USER_RATING)?.hasHeart() == true
     }
 }

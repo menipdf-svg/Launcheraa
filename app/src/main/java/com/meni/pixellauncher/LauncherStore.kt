@@ -15,6 +15,13 @@ const val MAX_GRID_COLUMNS = 6
 const val MAX_GRID_ROWS = 7
 
 // פריט במסך הבית: אפליקציה (appKey) או ווידג'ט (widgetId)
+/** גודל כרטיס המוזיקה במסך הבית */
+enum class MediaCardSize(val label: String) {
+    SMALL("קטן"),
+    MEDIUM("בינוני"),
+    LARGE("גדול")
+}
+
 /** היכן מוצגים שמות האפליקציות */
 enum class LabelMode(val label: String) {
     ALL("בכל מקום"),
@@ -353,6 +360,17 @@ class LauncherStore(context: Context) {
     fun updateLockLayout(enabled: Boolean) {
         lockLayout = enabled
         prefs.edit().putBoolean("lockLayout", enabled).apply()
+    }
+
+    var mediaCardSize by mutableStateOf(
+        runCatching { MediaCardSize.valueOf(prefs.getString("mediaCardSize", null) ?: "") }
+            .getOrDefault(MediaCardSize.MEDIUM)
+    )
+        private set
+
+    fun updateMediaCardSize(size: MediaCardSize) {
+        mediaCardSize = size
+        prefs.edit().putString("mediaCardSize", size.name).apply()
     }
 
     /** אפליקציות של Samsung ו-Google בתיקיות משלהן במגירה */
