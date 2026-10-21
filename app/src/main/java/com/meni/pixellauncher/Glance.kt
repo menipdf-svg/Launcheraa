@@ -19,6 +19,11 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -325,11 +330,8 @@ fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Mod
                 1 -> "מחר"
                 else -> java.text.SimpleDateFormat("EEEE", Locale.getDefault()).format(Date(e.begin))
             }
-            Text(
-                "📅  $day ${timeFormat.format(Date(e.begin))} · ${e.title}",
-                style = style,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -341,7 +343,22 @@ fun GlanceExtras(store: LauncherStore, refreshKey: Int, modifier: Modifier = Mod
                         )
                     }
                 }
-            )
+            ) {
+                // סמל וקטורי במקום אימוג'י, שמשתנה בין מכשירים
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Outlined.DateRange,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.92f),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "$day ${timeFormat.format(Date(e.begin))} · ${e.title}",
+                    style = style,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         // מתנגן עכשיו. לרוחב הכרטיס מוצג בנפרד, לצד המידע
@@ -470,11 +487,11 @@ private fun NowPlayingCard(
                                 }
                             )
                             Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp)) {
-                                Text(formatTime(shown), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatTime(shown), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.weight(1f))
                                 Text(
                                     "-" + formatTime(duration - shown),
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -540,7 +557,7 @@ private fun LikeButton(playing: NowPlaying) {
     )
     Box(
         Modifier
-            .size(40.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .clickable {
                 pop = true
@@ -588,7 +605,7 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onCommit: (Float) 
     Box(
         Modifier
             .fillMaxWidth()
-            .height(26.dp)
+            .height(40.dp)
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     onCommit((offset.x / size.width).coerceIn(0f, 1f))
@@ -652,12 +669,20 @@ private enum class MediaGlyph { PLAY, PAUSE, NEXT, PREVIOUS }
 private fun MediaButton(glyph: MediaGlyph, large: Boolean = false, onClick: () -> Unit) {
     val color = MaterialTheme.colorScheme.onSurface
     val background = if (large) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    // משטח המגע 48dp לפחות, גם כשהסמל קטן ממנו
     Box(
         Modifier
-            .size(if (large) 42.dp else 36.dp)
+            .size(48.dp)
             .clip(CircleShape)
-            .then(Modifier.clickable(onClick = onClick))
-            .then(Modifier),
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = when (glyph) {
+                    MediaGlyph.PREVIOUS -> "השיר הקודם"
+                    MediaGlyph.NEXT -> "השיר הבא"
+                    MediaGlyph.PLAY -> "הפעלה"
+                    MediaGlyph.PAUSE -> "השהיה"
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         Canvas(
@@ -692,5 +717,91 @@ private fun MediaButton(glyph: MediaGlyph, large: Boolean = false, onClick: () -
                 }
             }
         }
+    }
+}
+
+/**
+ * סמל מזג אוויר מצויר, במקום אימוג'י: נראה זהה בכל מכשיר ובכל גופן,
+ * ובצבע של הטקסט שלצידו. צל עדין כמו לטקסט, כדי שייראה גם על טפט בהיר.
+ */
+@Composable
+fun WeatherGlyph(code: Int, modifier: Modifier = Modifier, tint: Color = Color.White) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = w * 0.085f
+
+        fun DrawScope.shape(color: Color) {
+            fun sun(cx: Float, cy: Float, r: Float) {
+                drawCircle(color, r, Offset(cx, cy))
+                for (i in 0 until 8) {
+                    val a = Math.toRadians(i * 45.0)
+                    val dx = cos(a).toFloat()
+                    val dy = sin(a).toFloat()
+                    drawLine(
+                        color,
+                        Offset(cx + dx * r * 1.45f, cy + dy * r * 1.45f),
+                        Offset(cx + dx * r * 1.95f, cy + dy * r * 1.95f),
+                        strokeWidth = stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
+            }
+            fun cloud(top: Float) {
+                val base = top + h * 0.42f
+                drawCircle(color, w * 0.17f, Offset(w * 0.32f, base))
+                drawCircle(color, w * 0.22f, Offset(w * 0.52f, base - h * 0.08f))
+                drawCircle(color, w * 0.16f, Offset(w * 0.72f, base))
+                drawRoundRect(
+                    color,
+                    topLeft = Offset(w * 0.15f, base),
+                    size = androidx.compose.ui.geometry.Size(w * 0.73f, h * 0.17f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * 0.085f)
+                )
+            }
+            when (code) {
+                0 -> sun(w / 2, h / 2, w * 0.2f)
+                1, 2 -> {
+                    sun(w * 0.66f, h * 0.3f, w * 0.13f)
+                    cloud(h * 0.18f)
+                }
+                in 45..48 -> repeat(3) { i ->
+                    val y = h * (0.33f + 0.17f * i)
+                    drawLine(color, Offset(w * 0.15f, y), Offset(w * 0.85f, y), stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                }
+                in 51..67, in 80..82 -> {
+                    cloud(0f)
+                    listOf(0.35f, 0.52f, 0.69f).forEach { x ->
+                        drawLine(color, Offset(w * x, h * 0.70f), Offset(w * (x - 0.05f), h * 0.88f), stroke,
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    }
+                }
+                in 71..77, in 85..86 -> {
+                    cloud(0f)
+                    listOf(0.35f to 0.76f, 0.52f to 0.88f, 0.69f to 0.76f).forEach { (x, y) ->
+                        drawCircle(color, w * 0.05f, Offset(w * x, h * y))
+                    }
+                }
+                in 95..99 -> {
+                    cloud(0f)
+                    drawPath(
+                        Path().apply {
+                            moveTo(w * 0.56f, h * 0.60f); lineTo(w * 0.42f, h * 0.80f); lineTo(w * 0.52f, h * 0.80f)
+                            lineTo(w * 0.45f, h * 0.98f); lineTo(w * 0.65f, h * 0.74f); lineTo(w * 0.55f, h * 0.74f)
+                            lineTo(w * 0.62f, h * 0.60f); close()
+                        },
+                        color
+                    )
+                }
+                else -> cloud(h * 0.12f)
+            }
+        }
+
+        // צל ואז הסמל עצמו
+        translate(left = 0f, top = w * 0.03f) {
+            shape(Color.Black.copy(alpha = 0.3f))
+        }
+        shape(tint)
     }
 }

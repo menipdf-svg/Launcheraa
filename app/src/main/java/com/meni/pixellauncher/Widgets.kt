@@ -29,6 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.ui.draw.clip
@@ -354,7 +356,8 @@ fun BoxScope.WidgetResizeFrame(
     // ידית אופקית: רוחב
     ResizeHandle(
         modifier = Modifier.align(Alignment.CenterEnd),
-        color = color
+        color = color,
+        description = "שינוי רוחב"
     ) { total ->
         val steps = (total / (cellWidthPx * 0.6f)).toInt()
         if (steps != 0) {
@@ -368,7 +371,8 @@ fun BoxScope.WidgetResizeFrame(
     ResizeHandle(
         modifier = Modifier.align(Alignment.BottomCenter),
         color = color,
-        vertical = true
+        vertical = true,
+        description = "שינוי גובה"
     ) { total ->
         val steps = (total / (cellHeightPx * 0.6f)).toInt()
         if (steps != 0) {
@@ -382,19 +386,25 @@ fun BoxScope.WidgetResizeFrame(
     Box(
         Modifier
             .align(Alignment.TopStart)
-            .padding(2.dp)
-            .size(26.dp)
+            .size(48.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.errorContainer)
             .clickable { onRemove() },
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            Icons.Outlined.Close,
-            contentDescription = "הסרה",
-            tint = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.size(16.dp)
-        )
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.errorContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = "הסרת הווידג'ט",
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(16.dp)
+            )
+        }
     }
 }
 
@@ -404,15 +414,15 @@ private fun ResizeHandle(
     modifier: Modifier,
     color: Color,
     vertical: Boolean = false,
+    description: String,
     onStep: (Float) -> Boolean
 ) {
     var total by remember { mutableFloatStateOf(0f) }
+    // הנקודה קטנה, אבל אזור האחיזה 48dp, כדי שיהיה קל לתפוס אותה
     Box(
         modifier
-            .padding(2.dp)
-            .size(24.dp)
-            .clip(CircleShape)
-            .background(color)
+            .size(48.dp)
+            .semantics { contentDescription = description }
             .pointerInput(vertical) {
                 detectDragGestures(
                     onDragEnd = { total = 0f },
@@ -422,6 +432,9 @@ private fun ResizeHandle(
                     total += if (vertical) delta.y else delta.x
                     if (onStep(total)) total = 0f
                 }
-            }
-    )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(Modifier.size(24.dp).clip(CircleShape).background(color))
+    }
 }

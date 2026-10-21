@@ -18,6 +18,10 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.border
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -488,7 +492,7 @@ fun HomeFolderTile(
                                                 Modifier
                                                     .fillMaxSize(0.8f)
                                                     .clip(CircleShape)
-                                                    .background(Color.White.copy(alpha = 0.25f)),
+                                                    .background(Color.Black.copy(alpha = 0.45f)),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text("+$extra", color = Color.White, fontSize = 13.sp,
@@ -729,7 +733,7 @@ fun LauncherMenu(actions: List<MenuAction>, onDismissMenu: () -> Unit) {
                     compact.forEach { action ->
                         Box(
                             Modifier
-                                .size(46.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .clickable {
                                     onDismissMenu()
@@ -796,13 +800,25 @@ fun IconColorPicker(
     }
     Column {
         androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 6.dp, horizontal = 2.dp)
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            contentPadding = PaddingValues(vertical = 2.dp, horizontal = 0.dp)
         ) {
             items(options.size) { index ->
                 val mode = options[index]
                 val isSelected = mode == selected
                 val ring by animateFloatAsState(if (isSelected) 1f else 0f, spring(0.5f, 600f), label = "ring")
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable { onSelect(mode) }
+                        .semantics {
+                            contentDescription = IconColorMode.label(mode)
+                            selected = isSelected
+                            role = androidx.compose.ui.semantics.Role.RadioButton
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
                 Box(
                     Modifier
                         .size(40.dp)
@@ -838,8 +854,7 @@ fun IconColorPicker(
                                 IconColorMode.WALLPAPER -> Modifier.background(Color(wallpaper.background))
                                 else -> Modifier.background(Color(IconColor.valueOf(mode).background))
                             }
-                        )
-                        .clickable { onSelect(mode) },
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     // נקודה פנימית בצבע הסמל, כדי לראות את הצמד של רקע וסמל
@@ -858,6 +873,7 @@ fun IconColorPicker(
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                }
                 }
             }
         }

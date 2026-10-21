@@ -317,6 +317,11 @@ fun LauncherScreen(
     val rootView = androidx.compose.ui.platform.LocalView.current
     LaunchedEffect(store.wallpaperParallax, store.pageCount) {
         if (!store.wallpaperParallax) return@LaunchedEffect
+        // מי שביטל אנימציות בהגדרות המערכת (נגישות) לא יקבל טפט זז
+        val motionScale = android.provider.Settings.Global.getFloat(
+            context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
+        )
+        if (motionScale == 0f) return@LaunchedEffect
         val wallpaper = android.app.WallpaperManager.getInstance(context)
         val pages = store.pageCount
         snapshotFlow { pagerState.currentPage + pagerState.currentPageOffsetFraction }

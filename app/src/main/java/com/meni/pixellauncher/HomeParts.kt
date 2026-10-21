@@ -52,6 +52,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -104,23 +106,36 @@ fun AtAGlance(
         Text(
             text = date,
             style = style,
-            modifier = Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
-        )
-        if (weather != null) {
-            Text(
-                text = "  ·  ${weather.symbol} ${weather.temp}°",
-                style = style,
-                maxLines = 1,
-                modifier = Modifier.clickable(
+            // בגופן מוגדל התאריך מתקצר במקום לדחוק את מזג האוויר מחוץ למסך
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onWeatherClick
+                    onClick = onClick
                 )
-            )
+        )
+        if (weather != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onWeatherClick
+                    )
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "${weather.label}, ${weather.temp} מעלות"
+                    }
+            ) {
+                Text("  ·  ", style = style, maxLines = 1)
+                // סמל מצויר במקום אימוג'י, כדי שייראה זהה בכל מכשיר
+                WeatherGlyph(weather.code, Modifier.size(24.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("${weather.temp}°", style = style, maxLines = 1)
+            }
         }
     }
 }
@@ -660,7 +675,8 @@ private fun AlphabetScroller(
             verticalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier
                 .fillMaxHeight()
-                .width(26.dp)
+                .width(40.dp)
+                .semantics { contentDescription = "גלילה מהירה לפי אותיות" }
                 .pointerInput(letters) {
                     fun jump(y: Float) {
                         if (size.height <= 0) return
