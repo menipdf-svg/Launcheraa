@@ -889,12 +889,20 @@ fun LauncherScreen(
                                 }
                                 val cellW = maxWidth / cols
                                 val cellH = maxHeight / rows
-                                val labelRoom = 22.dp
+                                // המקום שהאייקון צריך מעבר לסמל עצמו, לפי המידות האמיתיות של AppIcon:
+                                // ריפוד של 6dp למעלה ולמטה, רווח של 6dp, ושורת טקסט של 12sp.
+                                // גובה השורה מחושב ב-sp, כדי לכבד גם הגדלת גופן בהגדרות המערכת
+                                val iconPadding = 12.dp
+                                val textLine = with(density) { 18.sp.toDp() }
+                                val labelRoom = iconPadding + 6.dp + textLine
+                                val wantLabels = store.homeLabels
                                 val cellIcon = minOf(
                                     iconSize,
-                                    (cellH - labelRoom).coerceAtLeast(22.dp),
+                                    // עם שם: האייקון מתכווץ קודם, עד 36dp, כדי שהשם ייכנס במלואו
+                                    (cellH - if (wantLabels) labelRoom else iconPadding).coerceAtLeast(36.dp),
                                     (cellW - 8.dp).coerceAtLeast(22.dp)
                                 )
+                                // רק כשגם האייקון המוקטן לא משאיר מקום, השם מוסתר
                                 val cellLabels = cellH >= cellIcon + labelRoom
 
                                 // לרוחב: סידור מחדש של הפריטים לפי הסדר שבו הם מופיעים לאורך,
