@@ -59,6 +59,22 @@ object IconRenderer {
                 }
             }
 
+            // אין שכבת monochrome: הצללית של שכבת החזית נצבעת בצבע שנבחר,
+            // כדי שצבע אחיד יחול על כל האייקונים ולא רק על אלה שתומכים בכך
+            if (theme != null) {
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.background }
+                canvas.drawPath(mask, paint)
+                val front = icon.foreground
+                if (front != null) {
+                    canvas.save()
+                    canvas.clipPath(mask)
+                    front.mutate().setBounds(-inset, -inset, size + inset, size + inset)
+                    drawSilhouette(canvas, front, theme.foreground, size)
+                    canvas.restore()
+                }
+                return bitmap
+            }
+
             if (shape == IconShape.SYSTEM) {
                 icon.draw(canvas)
             } else {
@@ -80,8 +96,20 @@ object IconRenderer {
         canvas.drawPath(background, paint)
         val inset = (size * 0.19f).toInt()
         icon.setBounds(inset, inset, size - inset, size - inset)
-        icon.draw(canvas)
+        if (theme != null) drawSilhouette(canvas, icon, theme.foreground, size) else icon.draw(canvas)
         return bitmap
+    }
+
+    /** מצייר את הצורה של drawable בצבע אחד, בשכבה נפרדת כדי לא לצבוע את הרקע */
+    private fun drawSilhouette(canvas: Canvas, drawable: Drawable, color: Int, size: Int) {
+        val layer = canvas.saveLayer(0f, 0f, size.toFloat(), size.toFloat(), null)
+        drawable.draw(canvas)
+        val tint = Paint().apply {
+            this.color = color
+            xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+        }
+        canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), tint)
+        canvas.restoreToCount(layer)
     }
 
     /** אייקון מחבילת אייקונים: מצויר כמו שהוא, בלי לחתוך לצורה */

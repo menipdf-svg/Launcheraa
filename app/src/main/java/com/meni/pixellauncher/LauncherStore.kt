@@ -223,6 +223,21 @@ class LauncherStore(context: Context) {
         prefs.edit().putBoolean("drawerCategories", enabled).apply()
     }
 
+    /**
+     * הצבע של כל האייקונים: מקורי, לפי הטפט, או צבע קבוע.
+     * מי שהפעיל בעבר "סמלים בצבעי הטפט" ממשיך עם הטפט.
+     */
+    var iconColorMode by mutableStateOf(
+        prefs.getString("iconColorMode", null)
+            ?: if (prefs.getBoolean("themed", false)) IconColorMode.WALLPAPER else IconColorMode.ORIGINAL
+    )
+        private set
+
+    fun updateIconColorMode(mode: String) {
+        iconColorMode = mode
+        prefs.edit().putString("iconColorMode", mode).apply()
+    }
+
     fun updateThemedIcons(enabled: Boolean) {
         themedIcons = enabled
         prefs.edit().putBoolean("themed", enabled).apply()

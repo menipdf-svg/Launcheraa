@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -594,6 +595,9 @@ fun AppEditDialog(
     swipeLabel: String?,
     hasCustomIcon: Boolean,
     canMoveToFolder: Boolean,
+    colorMode: String?,
+    wallpaper: IconTheme,
+    onColor: (String?) -> Unit,
     onRename: () -> Unit,
     onPickIcon: () -> Unit,
     onResetIcon: () -> Unit,
@@ -614,6 +618,9 @@ fun AppEditDialog(
         },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
+                // צבע לאייקון הזה בלבד. החלון נשאר פתוח, כדי לנסות כמה צבעים
+                IconColorPicker(selected = colorMode, allowDefault = true, wallpaper = wallpaper, onSelect = onColor)
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 EditRow("שינוי שם", app.originalLabel.takeIf { it != app.label }, Icons.Outlined.Create, onRename)
                 EditRow(
                     "בחירת אייקון",
@@ -755,4 +762,97 @@ val ShrinkIcon: ImageVector by lazy {
             fill = androidx.compose.ui.graphics.SolidColor(Color.Black)
         )
     }.build()
+}
+
+/**
+ * בחירת צבע לאייקונים: עיגולים קטנים בשורה נגללת.
+ * allowDefault מוסיף אפשרות "כמו כל האייקונים", לאייקון בודד.
+ */
+@Composable
+fun IconColorPicker(
+    selected: String?,
+    allowDefault: Boolean,
+    wallpaper: IconTheme,
+    onSelect: (String?) -> Unit
+) {
+    val options = buildList<String?> {
+        if (allowDefault) add(null)
+        add(IconColorMode.ORIGINAL)
+        add(IconColorMode.WALLPAPER)
+        IconColor.entries.forEach { add(it.name) }
+    }
+    Column {
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 6.dp, horizontal = 2.dp)
+        ) {
+            items(options.size) { index ->
+                val mode = options[index]
+                val isSelected = mode == selected
+                val ring by animateFloatAsState(if (isSelected) 1f else 0f, spring(0.5f, 600f), label = "ring")
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .graphicsLayer {
+                            val s = 1f + 0.1f * ring
+                            scaleX = s
+                            scaleY = s
+                        }
+                        .clip(CircleShape)
+                        // מסגרת רק לבחירה הנוכחית. רוחב 0 מצויר כקו דק, ולכן אין מסגרת בכלל
+                        .then(
+                            if (ring > 0.01f) {
+                                Modifier.border(2.5.dp * ring, MaterialTheme.colorScheme.primary, CircleShape)
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .padding(4.dp)
+                        .clip(CircleShape)
+                        .then(
+                            when (mode) {
+                                // "כמו כל האייקונים": עיגול ריק עם מסגרת
+                                null -> Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                // מקורי: גלגל צבעים
+                                IconColorMode.ORIGINAL -> Modifier.background(
+                                    androidx.compose.ui.graphics.Brush.sweepGradient(
+                                        listOf(
+                                            Color(0xFFEA4335), Color(0xFFFBBC04), Color(0xFF34A853),
+                                            Color(0xFF4285F4), Color(0xFFA142F4), Color(0xFFEA4335)
+                                        )
+                                    )
+                                )
+                                IconColorMode.WALLPAPER -> Modifier.background(Color(wallpaper.background))
+                                else -> Modifier.background(Color(IconColor.valueOf(mode).background))
+                            }
+                        )
+                        .clickable { onSelect(mode) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // נקודה פנימית בצבע הסמל, כדי לראות את הצמד של רקע וסמל
+                    val dot = when (mode) {
+                        null, IconColorMode.ORIGINAL -> null
+                        IconColorMode.WALLPAPER -> Color(wallpaper.foreground)
+                        else -> Color(IconColor.valueOf(mode).foreground)
+                    }
+                    if (dot != null) {
+                        Box(Modifier.size(12.dp).clip(CircleShape).background(dot))
+                    } else if (mode == null) {
+                        Icon(
+                            Icons.Outlined.Refresh,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            IconColorMode.label(selected),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
 }

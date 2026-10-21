@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -414,12 +415,22 @@ fun SettingsScreen(
                         label = { it.label },
                         onSelect = { store.updateIconShape(it) }
                     )
-                    SettingSwitch(
-                        title = "סמלים בצבעי הטפט",
-                        subtitle = "אנדרואיד 13 ומעלה",
-                        checked = store.themedIcons,
-                        onCheckedChange = { store.updateThemedIcons(it) }
-                    )
+                    // צבע לכל האייקונים יחד. לאייקון בודד: לחיצה ארוכה ← עריכה
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
+                            Text("צבע האייקונים", fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(Modifier.height(6.dp))
+                            IconColorPicker(
+                                selected = store.iconColorMode,
+                                allowDefault = false,
+                                wallpaper = IconTheme(
+                                    MaterialTheme.colorScheme.primaryContainer.toArgb(),
+                                    MaterialTheme.colorScheme.onPrimaryContainer.toArgb()
+                                ),
+                                onSelect = { mode -> if (mode != null) store.updateIconColorMode(mode) }
+                            )
+                        }
+                    }
                     SettingAction(
                         title = "חבילת אייקונים",
                         subtitle = store.iconPack?.let { pack ->

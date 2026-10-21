@@ -38,13 +38,15 @@ object AppsRepository {
         context: Context,
         theme: IconTheme? = null,
         shape: IconShape = IconShape.SYSTEM,
-        iconPack: String? = null
+        iconPack: String? = null,
+        /** צבעי הטפט, לאייקון שנבחר לו "לפי הטפט" גם כשהצבע הכללי אחר */
+        wallpaper: IconTheme? = null
     ): List<AppInfo> {
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         val custom = AppLabels.all(context)
+        val ownColors = IconColors.all(context)
         val versions = HashMap<String, Long>()
-        val style = "${shape.name}|${theme?.background}|${theme?.foreground}|${iconPack.orEmpty()}"
         val signatures = mutableListOf<String>()
 
         val apps = pm.queryIntentActivities(intent, 0)
@@ -60,6 +62,15 @@ object AppsRepository {
                 }
                 // אייקון שהמשתמש בחר גובר על הכול, והחותמת שלו נכנסת לחתימת המטמון
                 val customStamp = CustomIcons.stamp(context, key)
+                // צבע שנבחר לאייקון הזה גובר על הצבע הכללי ועל חבילת האייקונים
+                val own = ownColors[key]
+                val effective = if (own != null) {
+                    IconColorMode.theme(own, wallpaper ?: theme ?: IconColor.BLUE.theme)
+                } else {
+                    theme
+                }
+                val pack = if (own == null) iconPack else null
+                val style = "${shape.name}|${effective?.background}|${effective?.foreground}|${pack.orEmpty()}"
                 val signature = "$key|$version|$style|$customStamp"
                 signatures += signature
                 AppInfo(
@@ -70,13 +81,13 @@ object AppsRepository {
                     isSystem = (ri.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
                     icon = IconCache.get(context, signature) {
                         val chosen = if (customStamp > 0L) CustomIcons.load(context, key) else null
-                        val packIcon = iconPack?.let { IconPacks.iconFor(context, it, pkg, activity) }
+                        val packIcon = pack?.let { IconPacks.iconFor(context, it, pkg, activity) }
                         when {
                             chosen != null -> IconRenderer.renderPlain(
                                 android.graphics.drawable.BitmapDrawable(context.resources, chosen)
                             )
                             packIcon != null -> IconRenderer.renderPlain(packIcon)
-                            else -> IconRenderer.render(ri.loadIcon(pm), theme, shape = shape)
+                            else -> IconRenderer.render(ri.loadIcon(pm), effective, shape = shape)
                         }
                     }
                 )

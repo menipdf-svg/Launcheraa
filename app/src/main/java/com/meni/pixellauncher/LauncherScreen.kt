@@ -330,11 +330,9 @@ fun LauncherScreen(
     }
 
     val colors = MaterialTheme.colorScheme
-    val iconTheme = if (store.themedIcons) {
-        IconTheme(colors.primaryContainer.toArgb(), colors.onPrimaryContainer.toArgb())
-    } else {
-        null
-    }
+    // צבעי הטפט, וממנם הצבע הכללי של האייקונים לפי מה שנבחר בהגדרות
+    val wallpaperTheme = IconTheme(colors.primaryContainer.toArgb(), colors.onPrimaryContainer.toArgb())
+    val iconTheme = IconColorMode.theme(store.iconColorMode, wallpaperTheme)
 
     val iconShape = store.iconShape
     val iconSize = 54.dp * store.iconScale
@@ -349,8 +347,10 @@ fun LauncherScreen(
     val minCellH = iconSize + 30.dp
 
     val iconPack = store.iconPack
-    LaunchedEffect(refreshKey, iconTheme, iconShape, iconPack, iconRefresh) {
-        val loaded = withContext(Dispatchers.IO) { AppsRepository.loadApps(context, iconTheme, iconShape, iconPack) }
+    LaunchedEffect(refreshKey, iconTheme, iconShape, iconPack, iconRefresh, wallpaperTheme) {
+        val loaded = withContext(Dispatchers.IO) {
+            AppsRepository.loadApps(context, iconTheme, iconShape, iconPack, wallpaperTheme)
+        }
         apps = loaded
         if (loaded.isNotEmpty()) {
             if (!store.dockInitialized) {
@@ -1554,6 +1554,10 @@ fun LauncherScreen(
 
             // ================= חלון העריכה של אפליקציה =================
             val editing = editTarget
+            // הבחירה נשמרת גם במצב מקומי, כדי שהטבעת תזוז מיד ולא רק אחרי טעינת האייקונים
+            var editColor by remember(editing?.key) {
+                mutableStateOf(editing?.let { IconColors.all(context)[it.key] })
+            }
             if (editing != null) {
                 val swipeNow = swipeMap[editing.key]?.let { target -> apps.firstOrNull { it.key == target } }
                 AppEditDialog(
@@ -1561,6 +1565,13 @@ fun LauncherScreen(
                     swipeLabel = swipeNow?.label,
                     hasCustomIcon = CustomIcons.has(context, editing.key),
                     canMoveToFolder = store.drawerCategories && categories != null,
+                    colorMode = editColor,
+                    wallpaper = wallpaperTheme,
+                    onColor = { mode ->
+                        editColor = mode
+                        IconColors.set(context, editing.key, mode)
+                        iconRefresh++
+                    },
                     onRename = { editTarget = null; renameApp = editing },
                     onPickIcon = { editTarget = null; iconTarget = editing },
                     onResetIcon = {
