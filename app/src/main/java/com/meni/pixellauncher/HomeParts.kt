@@ -142,30 +142,30 @@ fun AtAGlance(
 
 /** שורת החיפוש מתחת ל-Dock */
 @Composable
-fun SearchPill(onClick: () -> Unit, modifier: Modifier = Modifier, opacity: Float = 0.92f) {
+fun SearchPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    opacity: Float = 0.92f,
+    /** בתוך ה-Dock הצף: שורה שקופה עם טקסט לבן, כחלק מהזכוכית */
+    onGlass: Boolean = false
+) {
+    val content = if (onGlass) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = opacity),
+        color = if (onGlass) Color.White.copy(alpha = 0.13f * opacity + 0.02f)
+            else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = opacity),
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(if (onGlass) 48.dp else 52.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 18.dp)
         ) {
-            Icon(
-                Icons.Rounded.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Icon(Icons.Rounded.Search, contentDescription = null, tint = content)
             Spacer(Modifier.width(12.dp))
-            Text(
-                "חיפוש באפליקציות",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 15.sp
-            )
+            Text("חיפוש באפליקציות", color = content, fontSize = 15.sp)
         }
     }
 }
@@ -204,6 +204,7 @@ fun AppDrawer(
     onFolderToHome: (DrawerGroup, List<AppInfo>) -> Unit = { _, _ -> },
     onItemMove: (Offset) -> Unit = {},
     onItemRelease: () -> Unit = {},
+    frosted: Boolean = false,
     appContent: @Composable (AppInfo) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
@@ -363,9 +364,12 @@ fun AppDrawer(
         }
     }
 
+    // עם טשטוש: זכוכית חלבית בהירה, שדרכה הטפט המטושטש מורגש. בלי טשטוש: משטח רגיל
     Surface(
         Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = backgroundOpacity)
+        color = MaterialTheme.colorScheme.surface.copy(
+            alpha = if (frosted) minOf(backgroundOpacity, 0.68f) else backgroundOpacity
+        )
     ) {
       Box(
           Modifier

@@ -427,14 +427,7 @@ private fun NowPlayingCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize(spring(dampingRatio = 1f, stiffness = 500f))
-                .clip(glassShape)
-                .background(Color.Black.copy(alpha = 0.40f))
-                .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.04f))
-                    )
-                )
-                .border(1.dp, Color.White.copy(alpha = 0.16f), glassShape)
+                .glass(glassShape)
                 .combinedClickable(onClick = openApp, onLongClick = { menuOpen = true })
         ) {
             Column(

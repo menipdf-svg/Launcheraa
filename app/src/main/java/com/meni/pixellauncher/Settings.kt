@@ -290,7 +290,7 @@ fun SettingsScreen(
                 transitionSpec = {
                     // כניסה לקטגוריה מחליקה קדימה, חזרה מחליקה אחורה
                     val shift = if (targetState != null) 1 else -1
-                    (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { w -> shift * w / 4 } +
+                    (slideInHorizontally(spring(dampingRatio = 1f, stiffness = 500f)) { w -> shift * w / 4 } +
                         fadeIn(tween(180))) togetherWith
                         (slideOutHorizontally(tween(180, easing = FastOutSlowInEasing)) { w -> -shift * w / 4 } +
                             fadeOut(tween(110)))

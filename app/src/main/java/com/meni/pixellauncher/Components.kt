@@ -417,10 +417,7 @@ fun HomeFolderTile(
                 Box(
                     Modifier
                         .size(iconSize)
-                        .clip(shape)
-                        .background(Color.Black.copy(alpha = 0.30f))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .border(1.dp, Color.White.copy(alpha = 0.16f), shape),
+                        .glass(shape),
                     contentAlignment = Alignment.Center
                 ) {
                     val mini = iconSize * 0.36f
@@ -456,10 +453,7 @@ fun HomeFolderTile(
                     Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(Color.Black.copy(alpha = 0.30f))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(26.dp))
+                        .glass(RoundedCornerShape(26.dp))
                         .onSizeChanged { gridSize = it }
                         .launcherItemGestures(
                             itemKey, onOpen, onLongPress, onMove, onRelease,

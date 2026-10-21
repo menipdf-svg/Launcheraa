@@ -4,6 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.platform.LocalConfiguration
+import kotlin.math.roundToInt
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -740,11 +743,19 @@ fun LauncherScreen(
     // ---------- מגירה ----------
 
     // קפיץ במקום עקומה אחידה: המגירה נכנסת עם מעט תנופה ונעצרת רך
-    val drawerProgress by animateFloatAsState(
-        targetValue = if (drawerOpen) 1f else 0f,
-        animationSpec = spring(dampingRatio = 1f, stiffness = 600f),
-        label = "drawer"
-    )
+    // המגירה כגיליון: בזמן משיכה מעלה היא עוקבת אחרי האצבע, ובשחרור ממשיכה בקפיץ
+    // עם המהירות של האצבע, כמו בפיקסל וב-iOS. פתיחה מכל מקום אחר מונפשת רגיל
+    val drawerAnim = remember { Animatable(0f) }
+    var drawerPulling by remember { mutableStateOf(false) }
+    var drawerFling by remember { mutableFloatStateOf(0f) }
+    val drawerSpring = spring<Float>(dampingRatio = 1f, stiffness = 520f)
+    LaunchedEffect(drawerOpen) {
+        if (drawerPulling) return@LaunchedEffect
+        drawerAnim.animateTo(if (drawerOpen) 1f else 0f, drawerSpring, initialVelocity = drawerFling)
+        drawerFling = 0f
+    }
+    val drawerProgress = drawerAnim.value
+    val pullPx = with(density) { (LocalConfiguration.current.screenHeightDp.dp * 0.55f).toPx() }
     // המגירה נשארת "חיה" בזמן גרירה ממנה, כדי שהאצבע לא תאבד את האייקון
     val drawerMounted = drawerOpen || drawerProgress > 0.01f ||
         (drag.app != null && drag.source == DragSource.DRAWER)
@@ -754,8 +765,13 @@ fun LauncherScreen(
     LaunchedEffect(lightSurface) { host.setLightSystemBars(lightSurface) }
 
     // טשטוש הטפט כשהמגירה או ההגדרות פתוחות
-    val blurWanted = store.on(Feature.BLUR) && (drawerOpen || settingsOpen)
-    LaunchedEffect(blurWanted) { host.setBackgroundBlur(if (blurWanted) 90 else 0) }
+    // טשטוש הטפט בזמן אמת: עולה יחד עם המגירה, בצעדים של 10px כדי לא להעמיס על החלון
+    val blurRadius = when {
+        !store.on(Feature.BLUR) -> 0
+        settingsOpen -> 90
+        else -> (drawerProgress * 9f).roundToInt() * 10
+    }
+    LaunchedEffect(blurRadius) { host.setBackgroundBlur(blurRadius) }
 
     // הצעות חכמות למגירה
     var suggestions by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
@@ -775,7 +791,12 @@ fun LauncherScreen(
         newApps = if (store.on(Feature.NEW_BADGES)) store.newApps.toSet() else emptySet()
     )
 
-    CompositionLocalProvider(LocalNaturalDirection provides naturalDirection, LocalIconBadges provides badges) {
+    val wallpaperAccent = rememberWallpaperAccent()
+    CompositionLocalProvider(
+        LocalNaturalDirection provides naturalDirection,
+        LocalIconBadges provides badges,
+        LocalGlassTint provides wallpaperAccent
+    ) {
         Box(Modifier.fillMaxSize()) {
 
             // ================= מסך הבית =================
@@ -786,17 +807,50 @@ fun LauncherScreen(
                     .multiFingerGestures(multiFingerEnabled) { performGesture(it) }
                     .pointerInput(Unit) {
                         var total = 0f
+                        val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
                         detectVerticalDragGestures(
-                            onDragStart = { total = 0f },
+                            onDragStart = {
+                                total = 0f
+                                tracker.resetTracking()
+                            },
                             onDragEnd = {
-                                when {
+                                val velocity = tracker.calculateVelocity().y // שלילי = מעלה
+                                if (drawerPulling) {
+                                    drawerPulling = false
+                                    // נפתחת אם נמשכה מעבר לשליש, או אם האצבע הוטחה מעלה
+                                    val open = drawerAnim.value > 0.33f || velocity < -1100f
+                                    val fling = -velocity / pullPx
+                                    if (open != drawerOpen) {
+                                        drawerFling = fling
+                                        focusSearch = false
+                                        drawerOpen = open
+                                    } else {
+                                        scope.launch {
+                                            drawerAnim.animateTo(if (open) 1f else 0f, drawerSpring, fling)
+                                        }
+                                    }
+                                } else when {
                                     total < -120f -> performGesture(LauncherGesture.SWIPE_UP)
                                     total > 120f -> performGesture(LauncherGesture.SWIPE_DOWN)
+                                }
+                            },
+                            onDragCancel = {
+                                if (drawerPulling) {
+                                    drawerPulling = false
+                                    scope.launch { drawerAnim.animateTo(0f, drawerSpring) }
                                 }
                             },
                             onVerticalDrag = { change, delta ->
                                 change.consume()
                                 total += delta
+                                tracker.addPosition(change.uptimeMillis, change.position)
+                                // משיכה מעלה פותחת את המגירה עם האצבע, כשזו הפעולה של המחווה
+                                val pullOpens = store.gestureActions[LauncherGesture.SWIPE_UP] == GestureAction.DRAWER
+                                if (pullOpens && !drawerOpen && total < -12f) {
+                                    drawerPulling = true
+                                    val progress = ((-total - 12f) / pullPx).coerceIn(0f, 1f)
+                                    scope.launch { drawerAnim.snapTo(progress) }
+                                }
                             }
                         )
                     }
@@ -1163,12 +1217,20 @@ fun LauncherScreen(
                             }
                         }
 
-                        Row(
+                        // Dock צף: מכל זכוכית מעוגל, עם שורת החיפוש משולבת בתוכו
+                        Column(
                             Modifier
+                                .padding(horizontal = 10.dp)
                                 .fillMaxWidth()
-                                .height(dockHeight)
-                                .padding(horizontal = GRID_PAD_H)
-                                .onGloballyPositioned { targets.dock = it.boundsInRoot() },
+                                .glass(RoundedCornerShape(32.dp))
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(dockHeight)
+                                    .padding(horizontal = 4.dp)
+                                    .onGloballyPositioned { targets.dock = it.boundsInRoot() },
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1227,21 +1289,22 @@ fun LauncherScreen(
                                 }
                             }
                         }
+                            if (store.on(Feature.HOME_SEARCH)) {
+                                SearchPill(
+                                    onClick = {
+                                        focusSearch = true
+                                        drawerOpen = true
+                                    },
+                                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 6.dp),
+                                    opacity = store.searchOpacity,
+                                    onGlass = true
+                                )
+                            }
+                        }
                     }
                 }
 
-                if (store.on(Feature.HOME_SEARCH)) {
-                    Spacer(Modifier.height(8.dp))
-                    SearchPill(
-                        onClick = {
-                            focusSearch = true
-                            drawerOpen = true
-                        },
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        opacity = store.searchOpacity
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
             }
 
             // ================= אזור "הסרה" בזמן גרירה =================
@@ -1327,6 +1390,7 @@ fun LauncherScreen(
                         },
                         onItemMove = moveDrag,
                         onItemRelease = endDrag,
+                        frosted = store.on(Feature.BLUR) && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S,
                         appContent = { app -> drawerIcon(app, "drawer") }
                     )
                 }
