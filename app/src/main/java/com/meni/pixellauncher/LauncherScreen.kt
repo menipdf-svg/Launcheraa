@@ -731,7 +731,7 @@ fun LauncherScreen(
     // קפיץ במקום עקומה אחידה: המגירה נכנסת עם מעט תנופה ונעצרת רך
     val drawerProgress by animateFloatAsState(
         targetValue = if (drawerOpen) 1f else 0f,
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 380f),
+        animationSpec = spring(dampingRatio = 1f, stiffness = 420f),
         label = "drawer"
     )
     // המגירה נשארת "חיה" בזמן גרירה ממנה, כדי שהאצבע לא תאבד את האייקון
@@ -792,8 +792,8 @@ fun LauncherScreen(
                     .graphicsLayer {
                         val p = drawerProgress
                         alpha = 1f - p
-                        scaleX = 1f - 0.07f * p
-                        scaleY = 1f - 0.07f * p
+                        scaleX = 1f - 0.04f * p
+                        scaleY = 1f - 0.04f * p
                     }
                     .systemBarsPadding()
             ) {
@@ -1211,7 +1211,7 @@ fun LauncherScreen(
                             alpha = drawerProgress
                             translationY = (1f - drawerProgress) * size.height * 0.18f
                             // התוכן גדל מעט בדרך פנימה, לתחושת עומק
-                            val s = 0.94f + 0.06f * drawerProgress
+                            val s = 0.97f + 0.03f * drawerProgress
                             scaleX = s
                             scaleY = s
                         }

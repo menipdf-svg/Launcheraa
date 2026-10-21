@@ -107,10 +107,21 @@ fun Modifier.launcherItemGestures(
     val clickAt by rememberUpdatedState(onClickAt)
 
     // האייקון נלחץ פנימה ברגע הנגיעה, וקופץ חזרה בשחרור
+    // לחיצה: האייקון שוקע מעט, בלי קפיצה. ההשקעה מוצגת רק אחרי 60ms של מגע
+    // בלי תזוזה, כדי שהחלקה בין דפים או לפתיחת המגירה לא תזיז את האייקונים
     var pressed by remember { mutableStateOf(false) }
+    var showPress by remember { mutableStateOf(false) }
+    LaunchedEffect(pressed) {
+        if (pressed) {
+            kotlinx.coroutines.delay(60)
+            showPress = true
+        } else {
+            showPress = false
+        }
+    }
     val press by animateFloatAsState(
-        targetValue = if (pressed) 0.88f else 1f,
-        animationSpec = spring(dampingRatio = 0.42f, stiffness = 700f),
+        targetValue = if (showPress) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = 1f, stiffness = 1100f),
         label = "iconPress"
     )
 
@@ -148,6 +159,7 @@ fun Modifier.launcherItemGestures(
                         totalX += d.x
                         totalY += d.y
                         if (abs(totalX) > slop || abs(totalY) > slop) {
+                            pressed = false
                             // החלקה מעלה נתפסת רק כשהוגדרה פעולה, אחרת המחווה
                             // ממשיכה להורה (פתיחת המגירה, גלילה בין דפים)
                             if (swipeUp != null && totalY < -slop && abs(totalY) > abs(totalX)) {
@@ -180,6 +192,7 @@ fun Modifier.launcherItemGestures(
 
                 val layout = coords[0]
                 val root = if (layout != null && layout.isAttached) layout.localToRoot(down.position) else down.position
+                pressed = false
                 longPress(root)
                 try {
                     while (true) {

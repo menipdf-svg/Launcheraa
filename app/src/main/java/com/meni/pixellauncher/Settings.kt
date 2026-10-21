@@ -1,7 +1,6 @@
 package com.meni.pixellauncher
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -291,8 +290,8 @@ fun SettingsScreen(
                 transitionSpec = {
                     // כניסה לקטגוריה מחליקה קדימה, חזרה מחליקה אחורה
                     val shift = if (targetState != null) 1 else -1
-                    (slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = 420f)) { w -> shift * w / 3 } +
-                        fadeIn(tween(160)) + scaleIn(tween(220), initialScale = 0.96f)) togetherWith
+                    (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { w -> shift * w / 4 } +
+                        fadeIn(tween(180))) togetherWith
                         (slideOutHorizontally(tween(180, easing = FastOutSlowInEasing)) { w -> -shift * w / 4 } +
                             fadeOut(tween(110)))
                 },
@@ -904,8 +903,8 @@ private fun SettingRow(
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.975f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 900f),
+        targetValue = if (pressed) 0.985f else 1f,
+        animationSpec = spring(dampingRatio = 1f, stiffness = 1100f),
         label = "rowPress"
     )
     Surface(
