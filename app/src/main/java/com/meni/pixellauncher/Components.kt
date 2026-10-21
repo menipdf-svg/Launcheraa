@@ -246,7 +246,7 @@ fun AppIcon(
                 .graphicsLayer { alpha = if (hidden) 0f else 1f }
                 .clip(RoundedCornerShape(18.dp))
                 .launcherItemGestures(app.key, onClick, onLongPress, onMove, onRelease, onSwipeUp)
-                .padding(horizontal = 4.dp, vertical = 6.dp)
+                .padding(horizontal = 2.dp, vertical = 2.dp)
         ) {
             val badges = LocalIconBadges.current
             val notifications = if (badges.dots) NotifService.counts[app.packageName] ?: 0 else 0
@@ -259,7 +259,7 @@ fun AppIcon(
                 if (notifications > 0) NotificationDot(Modifier.align(Alignment.TopEnd), iconSize, notifications)
             }
             if (showLabel) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // נקודה קטנה ליד השם של אפליקציה שהותקנה ועוד לא נפתחה
                     if (app.key in badges.newApps) {
@@ -281,7 +281,7 @@ fun AppIcon(
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 72.dp)
+                        modifier = Modifier.widthIn(max = 84.dp)
                     )
                 }
             }
@@ -411,7 +411,7 @@ fun HomeFolderTile(
                 modifier = Modifier
                     .clip(RoundedCornerShape(18.dp))
                     .launcherItemGestures(itemKey, onOpen, onLongPress, onMove, onRelease)
-                    .padding(horizontal = 4.dp, vertical = 6.dp)
+                    .padding(horizontal = 2.dp, vertical = 2.dp)
             ) {
                 // אותה זכוכית כהה כמו כרטיס המוזיקה, כדי שהמסך ייראה אחיד
                 Box(
@@ -438,7 +438,7 @@ fun HomeFolderTile(
                     }
                 }
                 if (showLabel) {
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(2.dp))
                     Text(label, style = labelStyle, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.widthIn(max = 72.dp))
                 }

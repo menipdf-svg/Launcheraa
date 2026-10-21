@@ -104,8 +104,8 @@ class DropTargets {
     var remove: Rect = Rect.Zero
 }
 
-private val GRID_PAD_H = 20.dp
-private val GRID_PAD_V = 8.dp
+private val GRID_PAD_H = 4.dp
+private val GRID_PAD_V = 2.dp
 
 @Composable
 fun LauncherScreen(
@@ -343,7 +343,10 @@ fun LauncherScreen(
     val iconTheme = IconColorMode.theme(store.iconColorMode, wallpaperTheme)
 
     val iconShape = store.iconShape
-    val iconSize = 54.dp * store.iconScale
+    // אייקון גדול כברירת מחדל; התא מקטין אותו רק כשאין ברירה
+    val iconSize = 66.dp * store.iconScale
+    // במגירה יש יותר עמודות, ולכן האייקון שם נשאר בגודל הקודם
+    val drawerIconSize = minOf(iconSize, 56.dp * store.iconScale)
 
     // בסיבוב המסך הגובה מצטמצם, ולכן ה-Dock מתכווץ יחד עם שאר המסך
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
@@ -934,15 +937,15 @@ fun LauncherScreen(
                                 // המקום שהאייקון צריך מעבר לסמל עצמו, לפי המידות האמיתיות של AppIcon:
                                 // ריפוד של 6dp למעלה ולמטה, רווח של 6dp, ושורת טקסט של 12sp.
                                 // גובה השורה מחושב ב-sp, כדי לכבד גם הגדלת גופן בהגדרות המערכת
-                                val iconPadding = 12.dp
+                                val iconPadding = 4.dp
                                 val textLine = with(density) { 18.sp.toDp() }
-                                val labelRoom = iconPadding + 6.dp + textLine
+                                val labelRoom = iconPadding + 2.dp + textLine
                                 val wantLabels = store.homeLabels
                                 val cellIcon = minOf(
                                     iconSize,
                                     // עם שם: האייקון מתכווץ קודם, עד 36dp, כדי שהשם ייכנס במלואו
                                     (cellH - if (wantLabels) labelRoom else iconPadding).coerceAtLeast(36.dp),
-                                    (cellW - 8.dp).coerceAtLeast(22.dp)
+                                    (cellW - 4.dp).coerceAtLeast(22.dp)
                                 )
                                 // רק כשגם האייקון המוקטן לא משאיר מקום, השם מוסתר
                                 val cellLabels = cellH >= cellIcon + labelRoom
@@ -1273,7 +1276,7 @@ fun LauncherScreen(
                         val menuKey = "$prefix:${app.key}"
                         AppIcon(
                             app = app,
-                            iconSize = iconSize,
+                            iconSize = drawerIconSize,
                             showLabel = store.drawerLabels,
                             labelColor = MaterialTheme.colorScheme.onSurface,
                             labelShadow = false,
@@ -1298,7 +1301,7 @@ fun LauncherScreen(
                         folderMode = store.drawerFolders,
                         columns = store.drawerColumns,
                         backgroundOpacity = store.drawerOpacity,
-                        iconSize = iconSize,
+                        iconSize = drawerIconSize,
                         iconShape = iconShape,
                         categoryProgress = categoryProgress,
                         onRenameFolder = { renameTarget = it },
@@ -1453,7 +1456,7 @@ fun LauncherScreen(
                 HiddenAppsScreen(
                     apps = apps.filter { it.key in hiddenKeys },
                     columns = store.drawerColumns,
-                    iconSize = iconSize,
+                    iconSize = drawerIconSize,
                     onLaunch = { app ->
                         launchApp(app)
                         hiddenOpen = false
