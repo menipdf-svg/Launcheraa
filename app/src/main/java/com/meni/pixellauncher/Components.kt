@@ -814,7 +814,7 @@ fun IconColorPicker(
                         .clickable { onSelect(mode) }
                         .semantics {
                             contentDescription = IconColorMode.label(mode)
-                            selected = isSelected
+                            this.selected = isSelected
                             role = androidx.compose.ui.semantics.Role.RadioButton
                         },
                     contentAlignment = Alignment.Center
