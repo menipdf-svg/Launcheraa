@@ -611,11 +611,31 @@ class LauncherStore(context: Context) {
         if (changed) save()
     }
 
-    /** מנקה אפליקציות שהוסרו וווידג'טים שכבר לא קיימים */
+    /**
+     * מנקה אפליקציות שהוסרו וווידג'טים שכבר לא קיימים.
+     * תיקיות לא נמחקות כאן (ל-appKey שלהן אין ערך, ולכן הן נראו "לא תקפות"):
+     * רק אפליקציות שהוסרו מתוכן מוצאות, ותיקייה שנשארה ריקה או עם אפליקציה אחת מתעדכנת.
+     */
     fun prune(validKeys: Set<String>, isWidgetValid: (Int) -> Boolean) {
         val dockChanged = dock.removeAll { it !in validKeys }
-        val homeChanged = home.removeAll {
-            if (it.isWidget) !isWidgetValid(it.widgetId) else it.appKey !in validKeys
+        var homeChanged = home.removeAll { item ->
+            when {
+                item.isFolder -> false
+                item.isWidget -> !isWidgetValid(item.widgetId)
+                else -> item.appKey !in validKeys
+            }
+        }
+        for (i in home.indices.reversed()) {
+            val item = home[i]
+            if (!item.isFolder) continue
+            val kept = item.folderApps.filter { it in validKeys }
+            if (kept.size == item.folderApps.size) continue
+            homeChanged = true
+            when (kept.size) {
+                0 -> home.removeAt(i)
+                1 -> home[i] = item.copy(folderApps = emptyList(), appKey = kept.first(), folderName = "")
+                else -> home[i] = item.copy(folderApps = kept)
+            }
         }
         if (dockChanged || homeChanged) save()
     }
